@@ -2,16 +2,42 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ExternalLink, Calendar } from "lucide-react";
+import { Search, ExternalLink, Calendar, RefreshCw } from "lucide-react";
 import { useNewsletters, useNewsletterSearch } from "@/lib/newsletter-data";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
   const { data: allNewsletters, isLoading } = useNewsletters();
   const { data: searchResults } = useNewsletterSearch(searchQuery);
+  const { toast } = useToast();
 
   const newsletters = searchQuery ? searchResults : allNewsletters;
+
+  const handleImport = async () => {
+    try {
+      setIsImporting(true);
+      await apiRequest('POST', '/api/newsletters/import');
+      await queryClient.invalidateQueries({ queryKey: ['/api/newsletters'] });
+      toast({
+        title: "Success",
+        description: "Newsletters imported successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to import newsletters",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -23,15 +49,25 @@ export default function Home() {
           <p className="text-muted-foreground text-lg mb-6">
             Newsletter Archive for Downtown Nashua
           </p>
-          
-          <div className="relative max-w-md mx-auto">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search newsletters..."
-              className="pl-9"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+
+          <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto items-center">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search newsletters..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={handleImport}
+              disabled={isImporting}
+            >
+              <RefreshCw className={`h-4 w-4 ${isImporting ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
         </header>
 
