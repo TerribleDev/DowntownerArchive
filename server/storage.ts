@@ -24,17 +24,19 @@ export class MemStorage implements IStorage {
     return this.newsletters.filter(
       newsletter =>
         newsletter.title.toLowerCase().includes(lowercaseQuery) ||
-        newsletter.description?.toLowerCase().includes(lowercaseQuery)
+        (newsletter.description?.toLowerCase() || '').includes(lowercaseQuery)
     ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
   async importNewsletters(newsletters: InsertNewsletter[]): Promise<void> {
-    newsletters.forEach(newsletter => {
-      this.newsletters.push({
-        ...newsletter,
-        id: this.currentId++
-      });
-    });
+    // Ensure description is null if not provided
+    const processedNewsletters = newsletters.map(newsletter => ({
+      ...newsletter,
+      description: newsletter.description ?? null,
+      id: this.currentId++
+    }));
+
+    this.newsletters.push(...processedNewsletters);
   }
 }
 
