@@ -10,13 +10,13 @@ export async function scrapeNewsletters(): Promise<InsertNewsletter[]> {
     const $ = cheerio.load(data);
     const newsletters: InsertNewsletter[] = [];
 
-    // The main archive container table
-    $('.archiveTable tr').each((_, element) => {
+    // The main archive container
+    $('tr.archive_row').each((_, element) => {
       const $element = $(element);
 
       // Extract newsletter details
-      const title = $element.find('.archiveTitle').text().trim();
-      const dateText = $element.find('.archiveDate').text().trim();
+      const title = $element.find('td:first-child').text().trim();
+      const dateText = $element.find('td:nth-child(2)').text().trim();
       const url = $element.find('a').attr('href');
 
       if (title && dateText && url) {
