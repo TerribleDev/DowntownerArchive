@@ -6,11 +6,6 @@ const ROBLY_ARCHIVE_URL = 'https://app.robly.com/public/archives?a=b31b32385b590
 
 async function scrapeNewsletterContent(url: string, retryCount = 0): Promise<{ thumbnail: string | null; content: string | null }> {
   try {
-    const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff capped at 10 seconds
-    if (retryCount > 0) {
-      await new Promise(resolve => setTimeout(resolve, backoffTime));
-    }
-
     const { data } = await axios.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -39,11 +34,7 @@ async function scrapeNewsletterContent(url: string, retryCount = 0): Promise<{ t
       thumbnail: thumbnailUrl,
       content
     };
-  } catch (error: any) {
-    if ((error.response?.status === 429 || error.code === 'ECONNRESET') && retryCount < 5) {
-      console.log(`Rate limited or connection reset, attempt ${retryCount + 1}/5`);
-      return scrapeNewsletterContent(url, retryCount + 1);
-    }
+  } catch (error) {
     console.warn('Error scraping newsletter content:', error);
     return { thumbnail: null, content: null };
   }
