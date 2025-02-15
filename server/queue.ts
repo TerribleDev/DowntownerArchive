@@ -5,7 +5,16 @@ import webpush from "web-push";
 
 // Create queue instance with proper Redis configuration
 const REDIS_URL = process.env.REPLIT_REDIS_URL || "redis://0.0.0.0:6379";
-export const newsletterQueue = new Queue("newsletter-updates", REDIS_URL);
+export const newsletterQueue = new Queue("newsletter-updates", REDIS_URL, {
+  settings: {
+    stalledInterval: 30000, // Check for stalled jobs every 30 seconds
+    maxStalledCount: 2 // Allow 2 stalls before marking as failed
+  },
+  limiter: {
+    max: 1, // Maximum number of jobs processed
+    duration: 30000 // Time window for rate limiting in milliseconds
+  }
+});
 
 // Process jobs in the queue
 newsletterQueue.process(async (job) => {
