@@ -6,14 +6,18 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add security headers to prevent script injection
+// Add security headers to prevent script injection and allow images from any domain
 app.use((req, res, next) => {
-  // Prevent content injection
-  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' https: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';");
+  // Prevent content injection but allow images from any domain
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src * data: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';");
   // Prevent browsers from MIME-sniffing
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // XSS protection
   res.setHeader('X-XSS-Protection', '1; mode=block');
+  // Allow CORS for images
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   next();
 });
 
