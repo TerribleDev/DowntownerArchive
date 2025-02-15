@@ -5,6 +5,11 @@ import type { InsertNewsletter } from '@shared/schema';
 const ROBLY_ARCHIVE_URL = 'https://app.robly.com/public/archives?a=b31b32385b5904b5';
 
 async function scrapeNewsletterContent(url: string, retryCount = 0): Promise<{ thumbnail: string | null; content: string | null }> {
+  // Skip content scraping if disabled via environment variable
+  if (process.env.SCRAPE_NEWSLETTER_CONTENT?.toLowerCase() === 'false') {
+    return { thumbnail: null, content: null };
+  }
+
   try {
     const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff capped at 10 seconds
     if (retryCount > 0) {
