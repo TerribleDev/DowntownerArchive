@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import webpush from "web-push";
 
 // Create queue instance with proper Redis configuration
-const REDIS_URL = process.env.REPLIT_REDIS_URL || "redis://localhost:6379";
+const REDIS_URL = process.env.REPLIT_REDIS_URL || "redis://0.0.0.0:6379";
 export const newsletterQueue = new Queue("newsletter-updates", REDIS_URL);
 
 // Process jobs in the queue

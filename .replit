@@ -44,5 +44,5 @@ task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
 
-[[processes]]
-redis = { command = "redis-server", start_at = true }
+[processes]
+redis = { command = "redis-server --port 6379 --bind 0.0.0.0", start_at = true }
