@@ -1,23 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ExternalLink, Calendar, RefreshCw } from "lucide-react";
+import { 
+  Search, 
+  ExternalLink, 
+  Calendar, 
+  RefreshCw, 
+  Share2,
+  Twitter,
+  Facebook,
+  Rss,
+  Bell,
+  BellOff
+} from "lucide-react";
 import { useNewsletters, useNewsletterSearch } from "@/lib/newsletter-data";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
+import { motion, AnimatePresence } from "framer-motion";
+
+const ITEMS_PER_PAGE = 20;
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const loader = useRef(null);
   const { data: allNewsletters, isLoading } = useNewsletters();
   const { data: searchResults } = useNewsletterSearch(searchQuery);
   const { toast } = useToast();
 
   const newsletters = searchQuery ? searchResults : allNewsletters;
+  const paginatedNewsletters = newsletters?.slice(0, page * ITEMS_PER_PAGE);
 
   const handleImport = async () => {
     try {
@@ -39,10 +57,88 @@ export default function Home() {
     }
   };
 
+  const handleShare = async (newsletter) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: newsletter.title,
+          text: newsletter.description || "Check out this newsletter from The Downtowner",
+          url: newsletter.url
+        });
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          toast({
+            title: "Error",
+            description: "Failed to share newsletter",
+            variant: "destructive",
+          });
+        }
+      }
+    }
+  };
+
+  const handleSubscribe = async () => {
+    try {
+      if (!('serviceWorker' in navigator) || !('Notification' in window)) {
+        throw new Error('Push notifications are not supported');
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        throw new Error('Notification permission denied');
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.VITE_VAPID_PUBLIC_KEY
+      });
+
+      await apiRequest('POST', '/api/subscriptions', subscription);
+      setIsSubscribed(true);
+      toast({
+        title: "Subscribed!",
+        description: "You'll receive notifications for new newsletters",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to subscribe to notifications",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleObserver = useCallback((entries) => {
+    const target = entries[0];
+    if (target.isIntersecting && newsletters?.length > page * ITEMS_PER_PAGE) {
+      setPage(prev => prev + 1);
+    }
+  }, [newsletters, page]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: "20px",
+      threshold: 1.0
+    });
+
+    if (loader.current) {
+      observer.observe(loader.current);
+    }
+
+    return () => observer.disconnect();
+  }, [handleObserver]);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
-        <header className="mb-8 text-center">
+        <motion.header 
+          className="mb-8 text-center"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
             The Downtowner
           </h1>
@@ -68,58 +164,119 @@ export default function Home() {
             >
               <RefreshCw className={`h-4 w-4 ${isImporting ? 'animate-spin' : ''}`} />
             </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSubscribe}
+              disabled={isSubscribed}
+            >
+              {isSubscribed ? (
+                <BellOff className="h-4 w-4" />
+              ) : (
+                <Bell className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              asChild
+            >
+              <a href="/api/rss" target="_blank" rel="noopener noreferrer">
+                <Rss className="h-4 w-4" />
+              </a>
+            </Button>
           </div>
-        </header>
+        </motion.header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {isLoading ? (
-            Array(6).fill(0).map((_, i) => (
-              <Card key={i} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <Skeleton className="h-6 w-2/3" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-full" />
-                </CardContent>
-              </Card>
-            ))
-          ) : newsletters?.length ? (
-            newsletters.map((newsletter) => (
-              <a
-                key={newsletter.id}
-                href={newsletter.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      {newsletter.title}
-                      <ExternalLink className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {format(new Date(newsletter.date), 'MMMM d, yyyy')}
-                    </CardDescription>
-                  </CardHeader>
-                  {newsletter.description && (
+          <AnimatePresence>
+            {isLoading ? (
+              Array(6).fill(0).map((_, i) => (
+                <motion.div
+                  key={`skeleton-${i}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <Skeleton className="h-6 w-2/3" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
                     <CardContent>
-                      <p className="text-muted-foreground">
-                        {newsletter.description}
-                      </p>
+                      <Skeleton className="h-4 w-full" />
                     </CardContent>
-                  )}
-                </Card>
-              </a>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-12 text-muted-foreground">
-              No newsletters found matching your search.
-            </div>
-          )}
+                  </Card>
+                </motion.div>
+              ))
+            ) : paginatedNewsletters?.length ? (
+              paginatedNewsletters.map((newsletter) => (
+                <motion.div
+                  key={newsletter.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  layout
+                >
+                  <Card className="h-full hover:shadow-lg transition-all duration-300 cursor-pointer group">
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <span className="line-clamp-2">{newsletter.title}</span>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleShare(newsletter);
+                            }}
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                          <a
+                            href={newsletter.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </div>
+                      </CardTitle>
+                      <CardDescription className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        {format(new Date(newsletter.date), 'MMMM d, yyyy')}
+                      </CardDescription>
+                    </CardHeader>
+                    {(newsletter.thumbnail || newsletter.description) && (
+                      <CardContent>
+                        {newsletter.thumbnail && (
+                          <img
+                            src={newsletter.thumbnail}
+                            alt={newsletter.title}
+                            className="w-full h-40 object-cover rounded-md mb-4"
+                          />
+                        )}
+                        {newsletter.description && (
+                          <p className="text-muted-foreground line-clamp-3">
+                            {newsletter.description}
+                          </p>
+                        )}
+                      </CardContent>
+                    )}
+                  </Card>
+                </motion.div>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                No newsletters found matching your search.
+              </div>
+            )}
+          </AnimatePresence>
         </div>
+
+        <div ref={loader} className="h-20" />
       </div>
     </div>
   );

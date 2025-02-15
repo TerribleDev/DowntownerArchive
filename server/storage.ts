@@ -1,43 +1,52 @@
-import { type Newsletter, type InsertNewsletter } from "@shared/schema";
+import { type Newsletter, type InsertNewsletter, type Subscription, type InsertSubscription } from "@shared/schema";
+import { db } from "./db";
+import { newsletters, subscriptions } from "@shared/schema";
+import { desc, ilike, or } from "drizzle-orm";
 
 export interface IStorage {
   getNewsletters(): Promise<Newsletter[]>;
   searchNewsletters(query: string): Promise<Newsletter[]>;
   importNewsletters(newsletters: InsertNewsletter[]): Promise<void>;
+  addSubscription(subscription: InsertSubscription): Promise<void>;
+  getSubscriptions(): Promise<Subscription[]>;
 }
 
-export class MemStorage implements IStorage {
-  private newsletters: Newsletter[];
-  private currentId: number;
-
-  constructor() {
-    this.newsletters = [];
-    this.currentId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getNewsletters(): Promise<Newsletter[]> {
-    return this.newsletters.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return await db.select().from(newsletters).orderBy(desc(newsletters.date));
   }
 
   async searchNewsletters(query: string): Promise<Newsletter[]> {
     const lowercaseQuery = query.toLowerCase();
-    return this.newsletters.filter(
-      newsletter =>
-        newsletter.title.toLowerCase().includes(lowercaseQuery) ||
-        (newsletter.description?.toLowerCase() || '').includes(lowercaseQuery)
-    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return await db
+      .select()
+      .from(newsletters)
+      .where(
+        or(
+          ilike(newsletters.title, `%${lowercaseQuery}%`),
+          ilike(newsletters.content || '', `%${lowercaseQuery}%`),
+          ilike(newsletters.description || '', `%${lowercaseQuery}%`)
+        )
+      )
+      .orderBy(desc(newsletters.date));
   }
 
-  async importNewsletters(newsletters: InsertNewsletter[]): Promise<void> {
-    // Ensure description is null if not provided
-    const processedNewsletters = newsletters.map(newsletter => ({
-      ...newsletter,
-      description: newsletter.description ?? null,
-      id: this.currentId++
-    }));
+  async importNewsletters(newNewsletters: InsertNewsletter[]): Promise<void> {
+    // Insert in batches to avoid overwhelming the database
+    const batchSize = 50;
+    for (let i = 0; i < newNewsletters.length; i += batchSize) {
+      const batch = newNewsletters.slice(i, i + batchSize);
+      await db.insert(newsletters).values(batch);
+    }
+  }
 
-    this.newsletters.push(...processedNewsletters);
+  async addSubscription(subscription: InsertSubscription): Promise<void> {
+    await db.insert(subscriptions).values(subscription);
+  }
+
+  async getSubscriptions(): Promise<Subscription[]> {
+    return await db.select().from(subscriptions);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
