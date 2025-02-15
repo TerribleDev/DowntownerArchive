@@ -16,56 +16,42 @@ export async function scrapeNewsletters(): Promise<InsertNewsletter[]> {
       timeout: 10000 // 10 second timeout
     });
 
-    if (!data) {
-      console.error('No data received from Robly');
-      throw new Error('No data received from archive URL');
-    }
-
-    console.log('Received HTML response:', data.slice(0, 200)); // Log first 200 chars for debugging
-
     const $ = cheerio.load(data);
     const newsletters: InsertNewsletter[] = [];
 
-    // Find all rows in the archive table
-    $('tr').each((_, element) => {
+    // Find all links that start with /archive?id=
+    $('a[href^="/archive?id="]').each((_, element) => {
       const $element = $(element);
+      const url = $element.attr('href');
+      const fullText = $element.parent().text().trim();
 
-      // Extract newsletter details
-      const title = $element.find('td').first().text().trim();
-      const dateText = $element.find('td').eq(1).text().trim();
-      const url = $element.find('a').attr('href');
+      // Extract date and title from the text
+      // Format is typically: "March 21, 2017 - Title"
+      const match = fullText.match(/^([A-Za-z]+ \d{1,2}, \d{4}) - (.+)$/);
 
-      console.log('Found row:', { title, dateText, url }); // Debug log
-
-      if (title && dateText && url) {
+      if (match && url) {
+        const [, dateStr, title] = match;
         try {
-          // Parse the date (format: MM/DD/YYYY)
-          const [month, day, year] = dateText.split('/').map(num => num.trim());
-          if (!month || !day || !year) {
-            console.warn('Invalid date format:', dateText);
-            return;
-          }
-
-          const date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          const date = new Date(dateStr).toISOString().split('T')[0];
 
           newsletters.push({
-            title,
+            title: title.trim(),
             date,
-            url: url.startsWith('http') ? url : `https://app.robly.com${url}`,
+            url: `https://app.robly.com${url}`,
             description: null
           });
         } catch (err) {
-          console.warn('Error processing newsletter row:', err);
+          console.warn('Error processing date for newsletter:', { dateStr, title }, err);
         }
       }
     });
 
     if (newsletters.length === 0) {
-      console.error('No newsletters found in HTML:', data);
+      console.error('No newsletters found in HTML. First 500 chars of response:', data.slice(0, 500));
       throw new Error('No newsletters found in the archive');
     }
 
-    console.log('Successfully scraped newsletters:', newsletters.length);
+    console.log(`Successfully scraped ${newsletters.length} newsletters`);
     return newsletters;
 
   } catch (error) {
