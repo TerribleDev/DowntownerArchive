@@ -4,7 +4,7 @@ import type { InsertNewsletter } from '@shared/schema';
 
 const ROBLY_ARCHIVE_URL = 'https://app.robly.com/public/archives?a=b31b32385b5904b5';
 
-async function scrapeNewsletterContent(url: string) {
+async function scrapeNewsletterContent(url: string, retryCount = 0): Promise<{ thumbnail: string | null; content: string | null }> {
   try {
     const { data } = await axios.get(url, {
       headers: {
@@ -14,6 +14,12 @@ async function scrapeNewsletterContent(url: string) {
       },
       timeout: 15000
     });
+
+    if (data.includes('AwsWafIntegration.checkForceRefresh') && retryCount < 3) {
+      console.log(`AWS WAF detected, waiting before retry ${retryCount + 1}/3`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return scrapeNewsletterContent(url, retryCount + 1);
+    }
 
     const $ = cheerio.load(data);
 
