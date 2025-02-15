@@ -5,7 +5,6 @@ import { scrapeNewsletters } from "./utils";
 import { Feed } from "feed";
 import webpush from "web-push";
 import schedule from "node-schedule";
-import { newsletterQueue } from "./queue";
 
 // Initialize web-push with VAPID keys
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -22,24 +21,54 @@ webpush.setVapidDetails(
 );
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup background job to queue newsletter updates
+  // Setup background job to check for new newsletters
   schedule.scheduleJob('0 */6 * * *', async function() {
     try {
-      console.log('Scheduling newsletter update job...');
-      await newsletterQueue.add({}, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 1000
-        }
-      });
-      console.log('Newsletter update job scheduled');
+      const existingNewsletters = await storage.getNewsletters();
+      const scrapedNewsletters = await scrapeNewsletters();
+
+      const newNewsletters = scrapedNewsletters.filter(scraped => 
+        !existingNewsletters.some(existing => 
+          existing.url === scraped.url
+        )
+      );
+
+      if (newNewsletters.length > 0) {
+        await storage.importNewsletters(newNewsletters);
+        console.log(`Found ${newNewsletters.length} new newsletters, sending notifications...`);
+
+        // Send push notifications
+        const subscriptions = await storage.getSubscriptions();
+        console.log(`Sending notifications to ${subscriptions.length} subscribers`);
+
+        const notificationPayload = JSON.stringify({
+          title: 'New Newsletters Available',
+          body: `${newNewsletters.length} new newsletter${newNewsletters.length > 1 ? 's' : ''} published!`,
+          icon: '/icon.png'
+        });
+
+        const results = await Promise.allSettled(
+          subscriptions.map(subscription =>
+            webpush.sendNotification({
+              endpoint: subscription.endpoint,
+              keys: {
+                auth: subscription.auth,
+                p256dh: subscription.p256dh
+              }
+            }, notificationPayload)
+          )
+        );
+
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+        console.log(`Push notifications sent: ${succeeded} succeeded, ${failed} failed`);
+      }
     } catch (error) {
-      console.error('Failed to schedule newsletter update job:', error);
+      console.error('Background job failed:', error);
     }
   });
 
-  // API Routes 
+  // API Routes
   app.get("/api/newsletters", async (_req, res) => {
     const newsletters = await storage.getNewsletters();
     res.json(newsletters);
@@ -53,22 +82,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/newsletters/import", async (_req, res) => {
     try {
-      // Use the queue for manual imports as well
-      const job = await newsletterQueue.add({}, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 1000
-        }
-      });
-      res.json({ message: "Newsletter import job scheduled", jobId: job.id });
+      const newsletters = await scrapeNewsletters();
+      await storage.importNewsletters(newsletters);
+      res.json({ message: "Newsletters imported successfully" });
     } catch (error) {
-      console.error('Error scheduling import job:', error);
-      res.status(500).json({ message: "Failed to schedule import job" });
+      console.error('Error importing newsletters:', error);
+      res.status(500).json({ message: "Failed to import newsletters" });
     }
   });
 
-  //Rest of the routes
   app.post("/api/subscriptions", async (req, res) => {
     try {
       console.log('Received subscription request:', {
@@ -118,6 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/rss", async (_req, res) => {
     try {
       const newsletters = await storage.getNewsletters();
+
       const feed = new Feed({
         title: "The Downtowner Newsletter",
         description: "Downtown Nashua's Newsletter Archive",
@@ -137,9 +160,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title: newsletter.title,
           id: newsletter.url,
           link: newsletter.url,
-          description: newsletter.description || undefined,
+          description: newsletter.description,
           date: new Date(newsletter.date),
-          image: newsletter.thumbnail || undefined
+          image: newsletter.thumbnail
         });
       }
 
