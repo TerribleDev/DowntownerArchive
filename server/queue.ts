@@ -3,8 +3,8 @@ import { scrapeNewsletters } from "./utils";
 import { storage } from "./storage";
 import webpush from "web-push";
 
-// Create queue instance with Replit Redis URL
-const REDIS_URL = process.env.REDIS_URL || "redis://redis:6379";
+// Create queue instance with proper Redis configuration
+const REDIS_URL = process.env.REPLIT_REDIS_URL || "redis://localhost:6379";
 export const newsletterQueue = new Queue("newsletter-updates", REDIS_URL);
 
 // Process jobs in the queue
@@ -49,6 +49,8 @@ newsletterQueue.process(async (job) => {
       const succeeded = results.filter(r => r.status === 'fulfilled').length;
       const failed = results.filter(r => r.status === 'rejected').length;
       console.log(`Push notifications sent: ${succeeded} succeeded, ${failed} failed`);
+    } else {
+      console.log('No new newsletters found');
     }
   } catch (error) {
     console.error('Queue job failed:', error);
