@@ -19,6 +19,7 @@ localPort = 6379
 externalPort = 3000
 
 [workflows]
+runButton = "start all"
 
 [[workflows.workflow]]
 name = "Project"
@@ -43,3 +44,25 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Start Redis"
+mode = "sequential"
+author = 1020010
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "redis-server"
+
+[[workflows.workflow]]
+name = "start all"
+mode = "parallel"
+author = 1020010
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start Redis"
