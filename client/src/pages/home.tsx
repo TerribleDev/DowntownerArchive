@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { urlBase64ToUint8Array } from "@/lib/utils";
 import {
   Search,
   ExternalLink,
@@ -89,9 +90,15 @@ export default function Home() {
       }
 
       const registration = await navigator.serviceWorker.ready;
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+        throw new Error('VAPID public key is not configured');
+      }
+
+      const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: import.meta.env.VITE_VAPID_PUBLIC_KEY
+        applicationServerKey: convertedVapidKey
       });
 
       await apiRequest('POST', '/api/subscriptions', subscription);
@@ -100,7 +107,7 @@ export default function Home() {
         title: "Subscribed!",
         description: "You'll receive notifications for new newsletters",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Failed to subscribe to notifications",
