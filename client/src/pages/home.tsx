@@ -4,11 +4,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Search, 
-  ExternalLink, 
-  Calendar, 
-  RefreshCw, 
+import {
+  Search,
+  ExternalLink,
+  Calendar,
+  RefreshCw,
   Share2,
   Twitter,
   Facebook,
@@ -133,7 +133,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
-        <motion.header 
+        <motion.header
           className="mb-8 text-center"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -156,8 +156,8 @@ export default function Home() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="icon"
               onClick={handleImport}
               disabled={isImporting}
@@ -218,54 +218,66 @@ export default function Home() {
                   exit={{ opacity: 0, y: -20 }}
                   layout
                 >
-                  <Card className="h-full hover:shadow-lg transition-all duration-300 cursor-pointer group">
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <span className="line-clamp-2">{newsletter.title}</span>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleShare(newsletter);
-                            }}
-                          >
-                            <Share2 className="h-4 w-4" />
-                          </Button>
-                          <a
-                            href={newsletter.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </div>
-                      </CardTitle>
-                      <CardDescription className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {format(new Date(newsletter.date), 'MMMM d, yyyy')}
-                      </CardDescription>
-                    </CardHeader>
-                    {(newsletter.thumbnail || newsletter.description) && (
-                      <CardContent>
-                        {newsletter.thumbnail && (
-                          <img
-                            src={newsletter.thumbnail}
-                            alt={newsletter.title}
-                            className="w-full h-40 object-cover rounded-md mb-4"
-                          />
-                        )}
-                        {newsletter.description && (
-                          <p className="text-muted-foreground line-clamp-3">
-                            {newsletter.description}
-                          </p>
-                        )}
-                      </CardContent>
-                    )}
-                  </Card>
+                  <a
+                    href={newsletter.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block"
+                  >
+                    <Card className="h-full hover:shadow-lg transition-all duration-300 cursor-pointer group">
+                      <CardHeader>
+                        <CardTitle className="flex items-center justify-between gap-2">
+                          <span className="line-clamp-2 flex-1">{newsletter.title}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleShare(newsletter);
+                              }}
+                            >
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                window.open(newsletter.url, '_blank');
+                              }}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          {format(new Date(newsletter.date), 'MMMM d, yyyy')}
+                        </CardDescription>
+                      </CardHeader>
+                      {(newsletter.thumbnail || newsletter.description) && (
+                        <CardContent>
+                          {newsletter.thumbnail && (
+                            <img
+                              src={newsletter.thumbnail}
+                              alt={newsletter.title}
+                              className="w-full h-40 object-cover rounded-md mb-4"
+                            />
+                          )}
+                          {newsletter.description && (
+                            <p className="text-muted-foreground line-clamp-3">
+                              {newsletter.description}
+                            </p>
+                          )}
+                        </CardContent>
+                      )}
+                    </Card>
+                  </a>
                 </motion.div>
               ))
             ) : (
