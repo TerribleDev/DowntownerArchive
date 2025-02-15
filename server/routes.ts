@@ -137,27 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/proxy-image", async (req, res) => {
-  try {
-    const imageUrl = req.query.url as string;
-    if (!imageUrl) {
-      return res.status(400).json({ message: "Image URL is required" });
-    }
-
-    const response = await axios.get(imageUrl, {
-      responseType: 'arraybuffer'
-    });
-
-    const contentType = response.headers['content-type'];
-    res.setHeader('Content-Type', contentType);
-    res.send(response.data);
-  } catch (error) {
-    console.error('Error proxying image:', error);
-    res.status(500).json({ message: "Failed to proxy image" });
-  }
-});
-
-app.get("/api/rss", async (_req, res) => {
+  app.get("/api/rss", async (_req, res) => {
     try {
       const newsletters = await storage.getNewsletters();
 

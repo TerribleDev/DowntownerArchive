@@ -6,21 +6,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add security headers to prevent script injection and allow images from any domain
-app.use((req, res, next) => {
-  // Prevent content injection but allow images from any domain
-  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src * data: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';");
-  // Prevent browsers from MIME-sniffing
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  // XSS protection
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  // Allow CORS for images
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  next();
-});
-
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -62,12 +47,17 @@ app.use((req, res, next) => {
     throw err;
   });
 
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
+  // ALWAYS serve the app on port 5000
+  // this serves both the API and the client
   const PORT = 5000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
