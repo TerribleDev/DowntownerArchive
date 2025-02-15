@@ -3,10 +3,9 @@ import { scrapeNewsletters } from "./utils";
 import { storage } from "./storage";
 import webpush from "web-push";
 
-// Create queue instance
-export const newsletterQueue = new Queue("newsletter-updates", {
-  redis: process.env.REDIS_URL || "redis://127.0.0.1:6379"
-});
+// Create queue instance with Replit Redis URL
+const REDIS_URL = process.env.REDIS_URL || "redis://redis:6379";
+export const newsletterQueue = new Queue("newsletter-updates", REDIS_URL);
 
 // Process jobs in the queue
 newsletterQueue.process(async (job) => {
