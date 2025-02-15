@@ -89,18 +89,27 @@ export default function Home() {
         throw new Error('Notification permission denied');
       }
 
+      console.log('Getting service worker registration...');
       const registration = await navigator.serviceWorker.ready;
+      console.log('Service worker registered successfully');
+
       const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
         throw new Error('VAPID public key is not configured');
       }
+      console.log('VAPID public key available:', vapidPublicKey.slice(0, 10) + '...');
 
       const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+      console.log('Converted VAPID key to Uint8Array');
+
+      console.log('Requesting push subscription...');
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: convertedVapidKey
       });
+      console.log('Successfully subscribed to push notifications');
 
+      console.log('Sending subscription to server...');
       await apiRequest('POST', '/api/subscriptions', subscription);
       setIsSubscribed(true);
       toast({
@@ -108,6 +117,7 @@ export default function Home() {
         description: "You'll receive notifications for new newsletters",
       });
     } catch (error: any) {
+      console.error('Subscription error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to subscribe to notifications",

@@ -7,14 +7,17 @@ import webpush from "web-push";
 import schedule from "node-schedule";
 
 // Initialize web-push with VAPID keys
-if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-  console.warn('VAPID keys not set. Push notifications will not work.');
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+
+if (!vapidPublicKey || !vapidPrivateKey) {
+  throw new Error('VAPID keys are required for push notifications. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.');
 }
 
 webpush.setVapidDetails(
   'mailto:team@downtowner.com',
-  process.env.VAPID_PUBLIC_KEY || '',
-  process.env.VAPID_PRIVATE_KEY || ''
+  vapidPublicKey,
+  vapidPrivateKey
 );
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -32,16 +35,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (newNewsletters.length > 0) {
         await storage.importNewsletters(newNewsletters);
+        console.log(`Found ${newNewsletters.length} new newsletters, sending notifications...`);
 
         // Send push notifications
         const subscriptions = await storage.getSubscriptions();
+        console.log(`Sending notifications to ${subscriptions.length} subscribers`);
+
         const notificationPayload = JSON.stringify({
           title: 'New Newsletters Available',
           body: `${newNewsletters.length} new newsletter${newNewsletters.length > 1 ? 's' : ''} published!`,
           icon: '/icon.png'
         });
 
-        await Promise.allSettled(
+        const results = await Promise.allSettled(
           subscriptions.map(subscription =>
             webpush.sendNotification({
               endpoint: subscription.endpoint,
@@ -52,6 +58,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }, notificationPayload)
           )
         );
+
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+        console.log(`Push notifications sent: ${succeeded} succeeded, ${failed} failed`);
       }
     } catch (error) {
       console.error('Background job failed:', error);
@@ -83,16 +93,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/subscriptions", async (req, res) => {
     try {
-      const subscription = req.body;
-      await storage.addSubscription({
-        endpoint: subscription.endpoint,
-        auth: subscription.keys.auth,
-        p256dh: subscription.keys.p256dh
+      console.log('Received subscription request:', {
+        endpoint: req.body.endpoint,
+        auth: req.body.keys?.auth ? '[present]' : '[missing]',
+        p256dh: req.body.keys?.p256dh ? '[present]' : '[missing]'
       });
+
+      if (!req.body.endpoint || !req.body.keys?.auth || !req.body.keys?.p256dh) {
+        throw new Error('Invalid subscription data');
+      }
+
+      await storage.addSubscription({
+        endpoint: req.body.endpoint,
+        auth: req.body.keys.auth,
+        p256dh: req.body.keys.p256dh
+      });
+
+      // Test the subscription with a welcome notification
+      try {
+        await webpush.sendNotification({
+          endpoint: req.body.endpoint,
+          keys: {
+            auth: req.body.keys.auth,
+            p256dh: req.body.keys.p256dh
+          }
+        }, JSON.stringify({
+          title: 'Subscription Successful',
+          body: 'You will now receive notifications for new newsletters!',
+          icon: '/icon.png'
+        }));
+        console.log('Welcome notification sent successfully');
+      } catch (notifError) {
+        console.error('Failed to send welcome notification:', notifError);
+      }
+
       res.json({ message: "Subscription added successfully" });
     } catch (error) {
       console.error('Error adding subscription:', error);
-      res.status(500).json({ message: "Failed to add subscription" });
+      res.status(500).json({ 
+        message: "Failed to add subscription",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
