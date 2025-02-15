@@ -47,6 +47,32 @@ export class DatabaseStorage implements IStorage {
   async getSubscriptions(): Promise<Subscription[]> {
     return await db.select().from(subscriptions);
   }
+
+  async getActiveSubscriptions(): Promise<Subscription[]> {
+    const result = await db
+      .select({
+        subscription: subscriptions,
+        settings: notificationSettings
+      })
+      .from(subscriptions)
+      .leftJoin(notificationSettings, eq(subscriptions.id, notificationSettings.subscription_id))
+      .where(eq(notificationSettings.newsletter_notifications, true));
+    
+    return result.map(r => r.subscription);
+  }
+
+  async saveNotificationSettings(subscriptionId: number, settings: Partial<InsertNotificationSettings>): Promise<void> {
+    await db
+      .insert(notificationSettings)
+      .values({
+        subscription_id: subscriptionId,
+        ...settings
+      })
+      .onConflictDoUpdate({
+        target: [notificationSettings.subscription_id],
+        set: settings
+      });
+  }
 }
 
 export const storage = new DatabaseStorage();

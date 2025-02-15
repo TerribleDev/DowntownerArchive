@@ -38,7 +38,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Found ${newNewsletters.length} new newsletters, sending notifications...`);
 
         // Send push notifications
-        const subscriptions = await storage.getSubscriptions();
+        const subscriptions = await storage.getActiveSubscriptions();
         console.log(`Sending notifications to ${subscriptions.length} subscribers`);
 
         const notificationPayload = JSON.stringify({
@@ -46,6 +46,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           body: `${newNewsletters.length} new newsletter${newNewsletters.length > 1 ? 's' : ''} published!`,
           icon: '/icon.png'
         });
+
+
+  app.post("/api/subscriptions/:id/settings", async (req, res) => {
+    try {
+      const subscriptionId = parseInt(req.params.id);
+      await storage.saveNotificationSettings(subscriptionId, {
+        newsletter_notifications: req.body.newsletter_notifications
+      });
+      res.json({ message: "Notification settings updated successfully" });
+    } catch (error) {
+      console.error('Error updating notification settings:', error);
+      res.status(500).json({ message: "Failed to update notification settings" });
+    }
+  });
 
         const results = await Promise.allSettled(
           subscriptions.map(subscription =>

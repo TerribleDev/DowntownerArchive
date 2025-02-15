@@ -42,3 +42,15 @@ export const insertSubscriptionSchema = createInsertSchema(subscriptions).pick({
 
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 export type Subscription = typeof subscriptions.$inferSelect;
+
+export const notificationSettings = pgTable("notification_settings", {
+  id: serial("id").primaryKey(),
+  subscription_id: serial("subscription_id").references(() => subscriptions.id),
+  newsletter_notifications: boolean("newsletter_notifications").default(true),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings);
+export type InsertNotificationSettings = z.infer<typeof insertNotificationSettingsSchema>;
+export type NotificationSettings = typeof notificationSettings.$inferSelect;
