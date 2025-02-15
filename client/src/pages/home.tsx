@@ -100,7 +100,8 @@ export default function Home() {
       console.log('VAPID public key available:', vapidPublicKey.slice(0, 10) + '...');
 
       const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
-      console.log('Converted VAPID key to Uint8Array');
+      console.log('Converted VAPID key length:', convertedVapidKey.length);
+      console.log('First few bytes:', Array.from(convertedVapidKey.slice(0, 5)));
 
       console.log('Requesting push subscription...');
       const subscription = await registration.pushManager.subscribe({

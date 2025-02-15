@@ -7,16 +7,17 @@ export function cn(...inputs: ClassValue[]) {
 
 // Convert base64 string to Uint8Array for web push
 export function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
-    .replace(/_/g, '/');
+  // Remove any padding characters from the base64 string
+  const base64 = base64String.replace(/=+$/, '');
 
-  const rawData = window.atob(base64);
+  // Replace URL-safe characters back to standard base64 characters
+  const rawData = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+
+  // Convert raw string to Uint8Array
   const outputArray = new Uint8Array(rawData.length);
-
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }
+
   return outputArray;
 }
