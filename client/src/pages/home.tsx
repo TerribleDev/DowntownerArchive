@@ -11,11 +11,10 @@ import {
   Calendar,
   RefreshCw,
   Share2,
-  Twitter,
-  Facebook,
-  Rss,
   Bell,
-  BellOff
+  BellOff,
+  Rss,
+  ImageOff
 } from "lucide-react";
 import { useNewsletters, useNewsletterSearch } from "@/lib/newsletter-data";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +23,34 @@ import { queryClient } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 
 const ITEMS_PER_PAGE = 20;
+
+function NewsletterImage({ src, alt, onError }: { src: string | null, alt: string, onError: () => void }) {
+  const [error, setError] = useState(false);
+
+  const handleError = () => {
+    setError(true);
+    onError();
+  };
+
+  if (!src || error) {
+    return (
+      <div className="w-full h-40 bg-muted flex items-center justify-center rounded-md mb-4">
+        <ImageOff className="h-8 w-8 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="w-full h-40 object-cover rounded-md mb-4"
+      onError={handleError}
+      loading="lazy"
+      crossOrigin="anonymous"
+    />
+  );
+}
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -236,66 +263,61 @@ export default function Home() {
                   exit={{ opacity: 0, y: -20 }}
                   layout
                 >
-                  <a
-                    href={newsletter.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
-                    <Card className="h-full hover:shadow-lg transition-all duration-300 cursor-pointer group">
-                      <CardHeader>
-                        <CardTitle className="flex items-center justify-between gap-2">
-                          <span className="line-clamp-2 flex-1">{newsletter.title}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleShare(newsletter);
-                              }}
-                            >
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                window.open(newsletter.url, '_blank');
-                              }}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </CardTitle>
-                        <CardDescription className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {format(new Date(newsletter.date), 'MMMM d, yyyy')}
-                        </CardDescription>
-                      </CardHeader>
-                      {(newsletter.thumbnail || newsletter.description) && (
-                        <CardContent>
-                          {newsletter.thumbnail && (
-                            <img
-                              src={newsletter.thumbnail}
-                              alt={newsletter.title}
-                              className="w-full h-40 object-cover rounded-md mb-4"
-                            />
-                          )}
-                          {newsletter.description && (
-                            <p className="text-muted-foreground line-clamp-3">
-                              {newsletter.description}
-                            </p>
-                          )}
-                        </CardContent>
-                      )}
-                    </Card>
-                  </a>
+                  <Card className="h-full hover:shadow-lg transition-all duration-300 cursor-pointer group">
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between gap-2">
+                        <span className="line-clamp-2">{newsletter.title}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleShare(newsletter);
+                            }}
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              window.open(newsletter.url, '_blank');
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardTitle>
+                      <CardDescription className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        {format(new Date(newsletter.date), 'MMMM d, yyyy')}
+                      </CardDescription>
+                    </CardHeader>
+                    {(newsletter.thumbnail || newsletter.description) && (
+                      <CardContent>
+                        {newsletter.thumbnail && (
+                          <NewsletterImage
+                            src={newsletter.thumbnail}
+                            alt={newsletter.title}
+                            onError={() => {
+                              console.warn(`Failed to load image for newsletter: ${newsletter.id}`);
+                            }}
+                          />
+                        )}
+                        {newsletter.description && (
+                          <p className="text-muted-foreground line-clamp-3">
+                            {newsletter.description}
+                          </p>
+                        )}
+                      </CardContent>
+                    )}
+                  </Card>
                 </motion.div>
               ))
             ) : (
