@@ -103,40 +103,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const newsletters = await storage.getNewsletters();
 
-      // Read the Tailwind CSS file
-      const cssPath = path.join(process.cwd(), "dist", "public", "assets", "index.css");
-      const css = fs.existsSync(cssPath) 
-        ? await fs.promises.readFile(cssPath, 'utf-8')
-        : '/* CSS not found */';
+      // Base styles that will ensure proper rendering regardless of parent site styles
+      const baseStyles = `
+        :host {
+          all: initial;
+          display: block;
+          contain: content;
+          color-scheme: light dark;
+        }
+        *, *::before, *::after {
+          box-sizing: border-box;
+        }
+        .newsletter-embed {
+          --background: #ffffff;
+          --foreground: #000000;
+          --card: #ffffff;
+          --card-foreground: #000000;
+          --popover: #ffffff;
+          --popover-foreground: #000000;
+          --primary: #000000;
+          --primary-foreground: #ffffff;
+          --secondary: #f1f5f9;
+          --secondary-foreground: #0f172a;
+          --muted: #f1f5f9;
+          --muted-foreground: #64748b;
+          --accent: #f1f5f9;
+          --accent-foreground: #0f172a;
+          --border: #e2e8f0;
+          --input: #e2e8f0;
+          --ring: #000000;
+
+          font-family: system-ui, -apple-system, sans-serif;
+          background: var(--background);
+          color: var(--foreground);
+          padding: 1rem;
+          width: 100%;
+        }
+        @media (prefers-color-scheme: dark) {
+          .newsletter-embed {
+            --background: #020817;
+            --foreground: #ffffff;
+            --card: #020817;
+            --card-foreground: #ffffff;
+            --popover: #020817;
+            --popover-foreground: #ffffff;
+            --primary: #ffffff;
+            --primary-foreground: #000000;
+            --secondary: #1e293b;
+            --secondary-foreground: #ffffff;
+            --muted: #1e293b;
+            --muted-foreground: #94a3b8;
+            --accent: #1e293b;
+            --accent-foreground: #ffffff;
+            --border: #1e293b;
+            --input: #1e293b;
+            --ring: #ffffff;
+          }
+        }
+      `;
 
       const content = `
         <style>
-          ${css}
-          /* Additional styles for shadow DOM isolation */
-          :host {
-            all: initial;
-            display: block;
+          ${baseStyles}
+          .grid {
+            display: grid;
+            gap: 1.5rem;
+            width: 100%;
           }
-          .newsletter-embed {
-            background: var(--background, white);
-            color: var(--foreground, black);
+          @media (min-width: 768px) {
+            .grid { grid-template-columns: repeat(2, 1fr); }
+          }
+          @media (min-width: 1024px) {
+            .grid { grid-template-columns: repeat(3, 1fr); }
+          }
+          .article {
+            background: var(--card);
+            border-radius: 0.5rem;
             padding: 1rem;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            border: 1px solid var(--border);
+          }
+          .title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--card-foreground);
+          }
+          .date {
+            font-size: 0.875rem;
+            color: var(--muted-foreground);
+          }
+          .image {
+            width: 100%;
+            height: 10rem;
+            object-fit: cover;
+            border-radius: 0.375rem;
+            margin: 1rem 0;
+          }
+          .description {
+            font-size: 0.875rem;
+            color: var(--muted-foreground);
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+          .link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: var(--primary);
+            text-decoration: none;
+          }
+          .link:hover {
+            text-decoration: underline;
           }
         </style>
         <div class="newsletter-embed">
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="grid">
             ${newsletters.slice(0, 6).map(newsletter => `
-              <article class="bg-card rounded-lg shadow p-4">
-                <h2 class="text-xl font-semibold mb-2">${newsletter.title}</h2>
-                <time class="text-sm text-muted-foreground">${new Date(newsletter.date).toLocaleDateString()}</time>
+              <article class="article">
+                <h2 class="title">${newsletter.title}</h2>
+                <time class="date">${new Date(newsletter.date).toLocaleDateString()}</time>
                 ${newsletter.thumbnail ? `
-                  <img src="${newsletter.thumbnail}" alt="${newsletter.title}" class="w-full h-40 object-cover rounded-md my-4">
+                  <img src="${newsletter.thumbnail}" alt="${newsletter.title}" class="image">
                 ` : ''}
                 ${newsletter.description ? `
-                  <p class="text-sm text-muted-foreground line-clamp-3">${newsletter.description}</p>
+                  <p class="description">${newsletter.description}</p>
                 ` : ''}
                 <a href="${newsletter.url}" target="_blank" rel="noopener noreferrer" 
-                   class="inline-block mt-4 text-primary hover:underline">
+                   class="link">
                   Read more
                 </a>
               </article>
@@ -218,7 +313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Subscription added successfully" });
     } catch (error) {
       console.error('Error adding subscription:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to add subscription",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
