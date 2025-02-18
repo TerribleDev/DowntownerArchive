@@ -14,8 +14,7 @@ import {
   Bell,
   BellOff,
   Download,
-  Rss,
-  X
+  Rss
 } from "lucide-react";
 import { useNewsletters, useNewsletterSearch } from "@/lib/newsletter-data";
 import { useToast } from "@/hooks/use-toast";
@@ -32,7 +31,6 @@ export default function Home() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [showInstallBanner, setShowInstallBanner] = useState(true);
   const loader = useRef(null);
   const { data: allNewsletters, isLoading, isFetching } = useNewsletters();
   const { data: searchResults } = useNewsletterSearch(searchQuery);
@@ -50,14 +48,12 @@ export default function Home() {
       // Stash the event so it can be triggered later
       setDeferredPrompt(e);
       setIsInstallable(true);
-      setShowInstallBanner(true);
     });
 
     // Listen for successful installation
     window.addEventListener('appinstalled', () => {
       setIsInstallable(false);
       setDeferredPrompt(null);
-      setShowInstallBanner(false);
       toast({
         title: "Success",
         description: "The Downtowner has been installed!",
@@ -84,7 +80,6 @@ export default function Home() {
       // Clear the deferredPrompt for the next time
       setDeferredPrompt(null);
       setIsInstallable(false);
-      setShowInstallBanner(false);
     } catch (error) {
       console.error('Error installing PWA:', error);
       toast({
@@ -207,40 +202,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AnimatePresence>
-        {isInstallable && showInstallBanner && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="bg-primary text-primary-foreground"
-          >
-            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Download className="h-5 w-5" />
-                <span>Install The Downtowner app for a better experience</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="secondary" 
-                  size="sm"
-                  onClick={handleInstall}
-                >
-                  Install Now
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowInstallBanner(false)}
-                  className="text-primary-foreground hover:text-primary-foreground/80"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
       <div className="container mx-auto px-4 py-8">
         <motion.header
           className="mb-8 text-center"
@@ -287,6 +248,16 @@ export default function Home() {
                 <Bell className="h-4 w-4" />
               )}
             </Button>
+            {isInstallable && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleInstall}
+                title="Install app"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="icon"
