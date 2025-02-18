@@ -10,7 +10,7 @@ async function scrapeNewsletterContent(
   retryCount = 0,
 ): Promise<{ thumbnail: string | null; content: string | null }> {
   try {
-    const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff capped at 10 seconds
+    const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 1000); // Exponential backoff capped at 10 seconds
     if (retryCount > 0) {
       await new Promise((resolve) => setTimeout(resolve, backoffTime));
     }
@@ -28,7 +28,7 @@ async function scrapeNewsletterContent(
 
     if (
       data.includes("AwsWafIntegration.checkForceRefresh") &&
-      retryCount < 3
+      retryCount < 1
     ) {
       console.log(`AWS WAF detected, waiting before retry ${retryCount + 1}/3`);
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -51,7 +51,7 @@ async function scrapeNewsletterContent(
   } catch (error: any) {
     if (
       (error.response?.status === 429 || error.code === "ECONNRESET") &&
-      retryCount < 5
+      retryCount < 1
     ) {
       console.log(
         `Rate limited or connection reset, attempt ${retryCount + 1}/5`,

@@ -1,4 +1,11 @@
-import { pgTable, text, serial, date, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  date,
+  timestamp,
+  boolean,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -51,6 +58,9 @@ export const notificationSettings = pgTable("notification_settings", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
-export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings);
-export type InsertNotificationSettings = z.infer<typeof insertNotificationSettingsSchema>;
+export const insertNotificationSettingsSchema =
+  createInsertSchema(notificationSettings);
+export type InsertNotificationSettings = z.infer<
+  typeof insertNotificationSettingsSchema
+>;
 export type NotificationSettings = typeof notificationSettings.$inferSelect;
