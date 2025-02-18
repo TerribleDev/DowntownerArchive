@@ -14,7 +14,7 @@ async function scrapeNewsletterContent(
   hasDetails: boolean;
 }> {
   try {
-    const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 10000);
+    const backoffTime = 60000; // 1 minute
     if (retryCount > 0) {
       await new Promise((resolve) => setTimeout(resolve, backoffTime));
     }
