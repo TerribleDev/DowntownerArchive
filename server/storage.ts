@@ -1,19 +1,29 @@
-import { type Newsletter, type InsertNewsletter, type Subscription, type InsertSubscription } from "@shared/schema";
+import { type Newsletter, type InsertNewsletter, type Subscription, type InsertSubscription, newsletters, subscriptions, notificationSettings } from "@shared/schema";
 import { db } from "./db";
-import { newsletters, subscriptions } from "@shared/schema";
-import { desc, ilike, or } from "drizzle-orm";
+import { desc, ilike, or, eq } from "drizzle-orm";
 
 export interface IStorage {
   getNewsletters(): Promise<Newsletter[]>;
+  getNewslettersWithoutDetails(): Promise<Newsletter[]>;
   searchNewsletters(query: string): Promise<Newsletter[]>;
   importNewsletters(newsletters: InsertNewsletter[]): Promise<void>;
+  updateNewsletterDetails(id: number, updates: Partial<InsertNewsletter>): Promise<void>;
   addSubscription(subscription: InsertSubscription): Promise<void>;
   getSubscriptions(): Promise<Subscription[]>;
+  getActiveSubscriptions(): Promise<Subscription[]>;
 }
 
 export class DatabaseStorage implements IStorage {
   async getNewsletters(): Promise<Newsletter[]> {
     return await db.select().from(newsletters).orderBy(desc(newsletters.date));
+  }
+
+  async getNewslettersWithoutDetails(): Promise<Newsletter[]> {
+    return await db
+      .select()
+      .from(newsletters)
+      .where(eq(newsletters.hasDetails, false))
+      .orderBy(desc(newsletters.date));
   }
 
   async searchNewsletters(query: string): Promise<Newsletter[]> {
@@ -32,12 +42,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async importNewsletters(newNewsletters: InsertNewsletter[]): Promise<void> {
-    // Insert in batches to avoid overwhelming the database
     const batchSize = 50;
     for (let i = 0; i < newNewsletters.length; i += batchSize) {
       const batch = newNewsletters.slice(i, i + batchSize);
       await db.insert(newsletters).values(batch);
     }
+  }
+
+  async updateNewsletterDetails(id: number, updates: Partial<InsertNewsletter>): Promise<void> {
+    await db
+      .update(newsletters)
+      .set({
+        ...updates,
+        last_checked: new Date(),
+      })
+      .where(eq(newsletters.id, id));
   }
 
   async addSubscription(subscription: InsertSubscription): Promise<void> {
@@ -55,23 +74,13 @@ export class DatabaseStorage implements IStorage {
         settings: notificationSettings
       })
       .from(subscriptions)
-      .leftJoin(notificationSettings, eq(subscriptions.id, notificationSettings.subscription_id))
+      .leftJoin(
+        notificationSettings,
+        eq(subscriptions.id, notificationSettings.subscription_id)
+      )
       .where(eq(notificationSettings.newsletter_notifications, true));
-    
-    return result.map(r => r.subscription);
-  }
 
-  async saveNotificationSettings(subscriptionId: number, settings: Partial<InsertNotificationSettings>): Promise<void> {
-    await db
-      .insert(notificationSettings)
-      .values({
-        subscription_id: subscriptionId,
-        ...settings
-      })
-      .onConflictDoUpdate({
-        target: [notificationSettings.subscription_id],
-        set: settings
-      });
+    return result.map(r => r.subscription);
   }
 }
 

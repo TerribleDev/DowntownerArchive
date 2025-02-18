@@ -1,6 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
-import type { InsertNewsletter } from "@shared/schema";
+import type { InsertNewsletter, Newsletter } from "@shared/schema";
 
 const ROBLY_ARCHIVE_URL =
   "https://app.robly.com/public/archives?a=b31b32385b5904b5";
@@ -8,9 +8,9 @@ const ROBLY_ARCHIVE_URL =
 async function scrapeNewsletterContent(
   url: string,
   retryCount = 0,
-): Promise<{ thumbnail: string | null; content: string | null }> {
+): Promise<{ thumbnail: string | null; content: string | null; hasDetails: boolean }> {
   try {
-    const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 1000); // Exponential backoff capped at 10 seconds
+    const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 1000);
     if (retryCount > 0) {
       await new Promise((resolve) => setTimeout(resolve, backoffTime));
     }
@@ -44,9 +44,12 @@ async function scrapeNewsletterContent(
     // Extract text content
     const content = $("body").text().trim();
 
+    const hasDetails = !!(content && content.length > 0);
+
     return {
       thumbnail: thumbnailUrl,
       content,
+      hasDetails,
     };
   } catch (error: any) {
     if (
@@ -59,7 +62,7 @@ async function scrapeNewsletterContent(
       return scrapeNewsletterContent(url, retryCount + 1);
     }
     console.warn("Error scraping newsletter content:", error);
-    return { thumbnail: null, content: null };
+    return { thumbnail: null, content: null, hasDetails: false };
   }
 }
 
@@ -79,7 +82,6 @@ export async function scrapeNewsletters(): Promise<InsertNewsletter[]> {
     const $ = cheerio.load(data);
     const newsletters: InsertNewsletter[] = [];
 
-    // Find all links that start with /archive?id=
     const links = $('a[href^="/archive?id="]');
     console.log(`Found ${links.length} newsletter links`);
 
@@ -88,8 +90,6 @@ export async function scrapeNewsletters(): Promise<InsertNewsletter[]> {
       const url = $element.attr("href");
       const fullText = $element.parent().text().trim();
 
-      // Extract date and title from the text
-      // Format is typically: "March 21, 2017 - Title"
       const match = fullText.match(/^([A-Za-z]+ \d{1,2}, \d{4}) - (.+)$/);
 
       if (match && url) {
@@ -98,8 +98,7 @@ export async function scrapeNewsletters(): Promise<InsertNewsletter[]> {
           const date = new Date(dateStr).toISOString().split("T")[0];
           const fullUrl = `https://app.robly.com${url}`;
 
-          // Scrape the newsletter content
-          const { thumbnail, content } = await scrapeNewsletterContent(fullUrl);
+          const { thumbnail, content, hasDetails } = await scrapeNewsletterContent(fullUrl);
 
           newsletters.push({
             title: title.trim(),
@@ -108,9 +107,10 @@ export async function scrapeNewsletters(): Promise<InsertNewsletter[]> {
             thumbnail,
             content,
             description: content ? content.slice(0, 200) + "..." : null,
+            hasDetails,
           });
 
-          console.log(`Processed newsletter: ${title}`);
+          console.log(`Processed newsletter: ${title} (hasDetails: ${hasDetails})`);
         } catch (err) {
           console.warn(
             "Error processing date for newsletter:",
@@ -142,4 +142,32 @@ export async function scrapeNewsletters(): Promise<InsertNewsletter[]> {
     }
     throw error;
   }
+}
+
+export async function retryMissingDetails(newsletters: Newsletter[]): Promise<InsertNewsletter[]> {
+  const newslettersWithoutDetails = newsletters.filter(n => !n.hasDetails);
+  console.log(`Found ${newslettersWithoutDetails.length} newsletters without details to retry`);
+
+  const updatedNewsletters: InsertNewsletter[] = [];
+
+  for (const newsletter of newslettersWithoutDetails) {
+    try {
+      const { thumbnail, content, hasDetails } = await scrapeNewsletterContent(newsletter.url);
+
+      if (hasDetails) {
+        updatedNewsletters.push({
+          ...newsletter,
+          thumbnail,
+          content,
+          description: content ? content.slice(0, 200) + "..." : null,
+          hasDetails,
+        });
+        console.log(`Successfully retrieved details for: ${newsletter.title}`);
+      }
+    } catch (error) {
+      console.error(`Failed to retrieve details for ${newsletter.title}:`, error);
+    }
+  }
+
+  return updatedNewsletters;
 }

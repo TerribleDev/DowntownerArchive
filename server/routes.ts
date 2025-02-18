@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { scrapeNewsletters } from "./utils";
+import { scrapeNewsletters, retryMissingDetails } from "./utils";
 import { Feed } from "feed";
 import webpush from "web-push";
 import schedule from "node-schedule";
@@ -27,6 +27,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingNewsletters = await storage.getNewsletters();
       const scrapedNewsletters = await scrapeNewsletters();
 
+      // Import new newsletters
       const newNewsletters = scrapedNewsletters.filter(scraped => 
         !existingNewsletters.some(existing => 
           existing.url === scraped.url
@@ -37,7 +38,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.importNewsletters(newNewsletters);
         console.log(`Found ${newNewsletters.length} new newsletters, sending notifications...`);
 
-        // Send push notifications
+        // Send push notifications for new newsletters
         const subscriptions = await storage.getActiveSubscriptions();
         console.log(`Sending notifications to ${subscriptions.length} subscribers`);
 
@@ -46,20 +47,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           body: `${newNewsletters.length} new newsletter${newNewsletters.length > 1 ? 's' : ''} published!`,
           icon: '/icon.png'
         });
-
-
-  app.post("/api/subscriptions/:id/settings", async (req, res) => {
-    try {
-      const subscriptionId = parseInt(req.params.id);
-      await storage.saveNotificationSettings(subscriptionId, {
-        newsletter_notifications: req.body.newsletter_notifications
-      });
-      res.json({ message: "Notification settings updated successfully" });
-    } catch (error) {
-      console.error('Error updating notification settings:', error);
-      res.status(500).json({ message: "Failed to update notification settings" });
-    }
-  });
 
         const results = await Promise.allSettled(
           subscriptions.map(subscription =>
@@ -77,6 +64,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const failed = results.filter(r => r.status === 'rejected').length;
         console.log(`Push notifications sent: ${succeeded} succeeded, ${failed} failed`);
       }
+
+      // Retry fetching details for newsletters without them
+      const newslettersWithoutDetails = await storage.getNewslettersWithoutDetails();
+      const updatedNewsletters = await retryMissingDetails(newslettersWithoutDetails);
+
+      for (const newsletter of updatedNewsletters) {
+        if (newsletter.id) {
+          await storage.updateNewsletterDetails(newsletter.id, {
+            thumbnail: newsletter.thumbnail,
+            content: newsletter.content,
+            description: newsletter.description,
+            hasDetails: newsletter.hasDetails,
+          });
+          console.log(`Updated details for newsletter: ${newsletter.title}`);
+        }
+      }
+
     } catch (error) {
       console.error('Background job failed:', error);
     }
@@ -148,6 +152,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Failed to add subscription",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  app.post("/api/subscriptions/:id/settings", async (req, res) => {
+    try {
+      const subscriptionId = parseInt(req.params.id);
+      await storage.saveNotificationSettings(subscriptionId, {
+        newsletter_notifications: req.body.newsletter_notifications
+      });
+      res.json({ message: "Notification settings updated successfully" });
+    } catch (error) {
+      console.error('Error updating notification settings:', error);
+      res.status(500).json({ message: "Failed to update notification settings" });
     }
   });
 

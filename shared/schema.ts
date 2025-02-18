@@ -17,6 +17,7 @@ export const newsletters = pgTable("newsletters", {
   description: text("description"),
   thumbnail: text("thumbnail"),
   content: text("content"),
+  hasDetails: boolean("has_details").default(false),
   last_checked: timestamp("last_checked"),
 });
 
@@ -27,6 +28,7 @@ export const insertNewsletterSchema = createInsertSchema(newsletters).pick({
   description: true,
   thumbnail: true,
   content: true,
+  hasDetails: true,
 });
 
 export type InsertNewsletter = z.infer<typeof insertNewsletterSchema>;
