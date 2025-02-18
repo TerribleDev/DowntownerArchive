@@ -31,7 +31,7 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const loader = useRef(null);
-  const { data: allNewsletters, isLoading } = useNewsletters();
+  const { data: allNewsletters, isLoading, isFetching } = useNewsletters();
   const { data: searchResults } = useNewsletterSearch(searchQuery);
   const { toast } = useToast();
 
