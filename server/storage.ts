@@ -7,6 +7,7 @@ export interface IStorage {
   getNewslettersWithoutDetails(): Promise<Newsletter[]>;
   searchNewsletters(query: string): Promise<Newsletter[]>;
   importNewsletters(newsletters: InsertNewsletter[]): Promise<void>;
+  importNewsletter(newsletter: InsertNewsletter): Promise<void>;
   updateNewsletterDetails(id: number, updates: Partial<InsertNewsletter>): Promise<void>;
   addSubscription(subscription: InsertSubscription): Promise<void>;
   getSubscriptions(): Promise<Subscription[]>;
@@ -41,11 +42,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(newsletters.date));
   }
 
+  async importNewsletter(newsletter: InsertNewsletter): Promise<void> {
+    await db.insert(newsletters).values(newsletter);
+  }
+
   async importNewsletters(newNewsletters: InsertNewsletter[]): Promise<void> {
-    const batchSize = 50;
-    for (let i = 0; i < newNewsletters.length; i += batchSize) {
-      const batch = newNewsletters.slice(i, i + batchSize);
-      await db.insert(newsletters).values(batch);
+    for (const newsletter of newNewsletters) {
+      await this.importNewsletter(newsletter);
     }
   }
 

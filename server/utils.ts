@@ -66,7 +66,9 @@ async function scrapeNewsletterContent(
   }
 }
 
-export async function scrapeNewsletters(): Promise<InsertNewsletter[]> {
+export async function scrapeNewsletters(
+  onNewsletterProcessed?: (newsletter: InsertNewsletter) => Promise<void>
+): Promise<InsertNewsletter[]> {
   try {
     const { data } = await axios.get(ROBLY_ARCHIVE_URL, {
       headers: {
@@ -100,7 +102,7 @@ export async function scrapeNewsletters(): Promise<InsertNewsletter[]> {
 
           const { thumbnail, content, hasDetails } = await scrapeNewsletterContent(fullUrl);
 
-          newsletters.push({
+          const newsletter: InsertNewsletter = {
             title: title.trim(),
             date,
             url: fullUrl,
@@ -108,8 +110,13 @@ export async function scrapeNewsletters(): Promise<InsertNewsletter[]> {
             content,
             description: content ? content.slice(0, 200) + "..." : null,
             hasDetails,
-          });
+          };
 
+          if (onNewsletterProcessed) {
+            await onNewsletterProcessed(newsletter);
+          }
+
+          newsletters.push(newsletter);
           console.log(`Processed newsletter: ${title} (hasDetails: ${hasDetails})`);
         } catch (err) {
           console.warn(

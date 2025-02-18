@@ -25,18 +25,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   schedule.scheduleJob('0 */6 * * *', async function() {
     try {
       const existingNewsletters = await storage.getNewsletters();
-      const scrapedNewsletters = await scrapeNewsletters();
+      let newNewslettersCount = 0;
 
-      // Import new newsletters
-      const newNewsletters = scrapedNewsletters.filter(scraped => 
-        !existingNewsletters.some(existing => 
-          existing.url === scraped.url
-        )
-      );
+      await scrapeNewsletters(async (newsletter) => {
+        // Check if newsletter already exists
+        const exists = existingNewsletters.some(existing => existing.url === newsletter.url);
+        if (!exists) {
+          await storage.importNewsletter(newsletter);
+          newNewslettersCount++;
+          console.log(`Imported new newsletter: ${newsletter.title}`);
+        }
+      });
 
-      if (newNewsletters.length > 0) {
-        await storage.importNewsletters(newNewsletters);
-        console.log(`Found ${newNewsletters.length} new newsletters, sending notifications...`);
+      if (newNewslettersCount > 0) {
+        console.log(`Found ${newNewslettersCount} new newsletters, sending notifications...`);
 
         // Send push notifications for new newsletters
         const subscriptions = await storage.getActiveSubscriptions();
@@ -44,7 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const notificationPayload = JSON.stringify({
           title: 'New Newsletters Available',
-          body: `${newNewsletters.length} new newsletter${newNewsletters.length > 1 ? 's' : ''} published!`,
+          body: `${newNewslettersCount} new newsletter${newNewslettersCount > 1 ? 's' : ''} published!`,
           icon: '/icon.png'
         });
 
@@ -100,9 +102,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/newsletters/import", async (_req, res) => {
     try {
-      const newsletters = await scrapeNewsletters();
-      await storage.importNewsletters(newsletters);
-      res.json({ message: "Newsletters imported successfully" });
+      let importedCount = 0;
+      await scrapeNewsletters(async (newsletter) => {
+        await storage.importNewsletter(newsletter);
+        importedCount++;
+      });
+      res.json({ message: `Successfully imported ${importedCount} newsletters` });
     } catch (error) {
       console.error('Error importing newsletters:', error);
       res.status(500).json({ message: "Failed to import newsletters" });
@@ -178,6 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: "https://downtowner.com/",
         link: "https://downtowner.com/",
         language: "en",
+        copyright: "All rights reserved",
         favicon: "https://downtowner.com/favicon.ico",
         updated: newsletters[0]?.date ? new Date(newsletters[0].date) : new Date(),
         generator: "The Downtowner RSS Feed",
@@ -191,9 +197,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title: newsletter.title,
           id: newsletter.url,
           link: newsletter.url,
-          description: newsletter.description,
+          description: newsletter.description || '',
           date: new Date(newsletter.date),
-          image: newsletter.thumbnail
+          image: newsletter.thumbnail || undefined
         });
       }
 
