@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newsletter Embed Demo</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        #newsletter-container {
+            margin: 2rem 0;
+            border: 1px solid #eaeaea;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <h1>Newsletter Embed Demo</h1>
+    <p>Below is the embedded newsletter content from The Downtowner:</p>
+    
+    <div id="newsletter-container"></div>
+
+    <script>
+        class NewsletterEmbed extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+            }
+
+            async connectedCallback() {
+                try {
+                    const response = await fetch('/embed');
+                    const html = await response.text();
+                    this.shadowRoot.innerHTML = html;
+                } catch (error) {
+                    console.error('Failed to load newsletter content:', error);
+                    this.shadowRoot.innerHTML = '<p>Failed to load newsletter content</p>';
+                }
+            }
+        }
+
+        customElements.define('newsletter-embed', NewsletterEmbed);
+        document.getElementById('newsletter-container').innerHTML = '<newsletter-embed></newsletter-embed>';
+    </script>
+</body>
+</html>

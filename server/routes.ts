@@ -5,6 +5,8 @@ import { scrapeNewsletters, retryMissingDetails } from "./utils";
 import { Feed } from "feed";
 import webpush from "web-push";
 import schedule from "node-schedule";
+import fs from "fs";
+import path from "path";
 
 // Initialize web-push with VAPID keys
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -85,6 +87,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error('Background job failed:', error);
+    }
+  });
+
+  // Add CORS middleware for the embed route
+  app.use("/embed", (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+    next();
+  });
+
+  // New route for embedded content
+  app.get("/embed", async (req, res) => {
+    try {
+      const newsletters = await storage.getNewsletters();
+
+      // Read the Tailwind CSS file
+      const cssPath = path.join(process.cwd(), "dist", "public", "assets", "index.css");
+      const css = fs.existsSync(cssPath) 
+        ? await fs.promises.readFile(cssPath, 'utf-8')
+        : '/* CSS not found */';
+
+      const content = `
+        <style>
+          ${css}
+          /* Additional styles for shadow DOM isolation */
+          :host {
+            all: initial;
+            display: block;
+          }
+          .newsletter-embed {
+            background: var(--background, white);
+            color: var(--foreground, black);
+            padding: 1rem;
+          }
+        </style>
+        <div class="newsletter-embed">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            ${newsletters.slice(0, 6).map(newsletter => `
+              <article class="bg-card rounded-lg shadow p-4">
+                <h2 class="text-xl font-semibold mb-2">${newsletter.title}</h2>
+                <time class="text-sm text-muted-foreground">${new Date(newsletter.date).toLocaleDateString()}</time>
+                ${newsletter.thumbnail ? `
+                  <img src="${newsletter.thumbnail}" alt="${newsletter.title}" class="w-full h-40 object-cover rounded-md my-4">
+                ` : ''}
+                ${newsletter.description ? `
+                  <p class="text-sm text-muted-foreground line-clamp-3">${newsletter.description}</p>
+                ` : ''}
+                <a href="${newsletter.url}" target="_blank" rel="noopener noreferrer" 
+                   class="inline-block mt-4 text-primary hover:underline">
+                  Read more
+                </a>
+              </article>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      res.header('Content-Type', 'text/html');
+      res.send(content);
+    } catch (error) {
+      console.error('Error generating embedded content:', error);
+      res.status(500).json({ message: "Failed to generate embedded content" });
     }
   });
 
