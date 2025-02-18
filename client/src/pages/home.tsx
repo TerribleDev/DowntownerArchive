@@ -37,6 +37,7 @@ export default function Home() {
 
   const newsletters = searchQuery ? searchResults : allNewsletters;
   const paginatedNewsletters = newsletters?.slice(0, page * ITEMS_PER_PAGE);
+  const isDevelopment = import.meta.env.MODE === 'development';
 
   const handleImport = async () => {
     try {
@@ -174,14 +175,16 @@ export default function Home() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleImport}
-              disabled={isImporting}
-            >
-              <RefreshCw className={`h-4 w-4 ${isImporting ? 'animate-spin' : ''}`} />
-            </Button>
+            {isDevelopment && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleImport}
+                disabled={isImporting}
+              >
+                <RefreshCw className={`h-4 w-4 ${isImporting ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="icon"
