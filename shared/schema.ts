@@ -13,7 +13,7 @@ export const newsletters = pgTable("newsletters", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   date: date("date").notNull(),
-  url: text("url").notNull(),
+  url: text("url").notNull().unique(),
   description: text("description"),
   thumbnail: text("thumbnail"),
   content: text("content"),

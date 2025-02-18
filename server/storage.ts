@@ -43,7 +43,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async importNewsletter(newsletter: InsertNewsletter): Promise<void> {
-    await db.insert(newsletters).values(newsletter);
+    try {
+      await db.insert(newsletters).values(newsletter);
+    } catch (error: any) {
+      if (error.code === '23505') { // PostgreSQL unique violation code
+        console.log(`Newsletter with URL ${newsletter.url} already exists, skipping`);
+      } else {
+        throw error;
+      }
+    }
   }
 
   async importNewsletters(newNewsletters: InsertNewsletter[]): Promise<void> {
