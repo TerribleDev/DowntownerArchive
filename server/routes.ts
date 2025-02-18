@@ -13,29 +13,25 @@ const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
 if (!vapidPublicKey || !vapidPrivateKey) {
-  throw new Error(
-    "VAPID keys are required for push notifications. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.",
-  );
+  throw new Error('VAPID keys are required for push notifications. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.');
 }
 
 webpush.setVapidDetails(
-  "mailto:team@downtowner.com",
+  'mailto:team@downtowner.com',
   vapidPublicKey,
-  vapidPrivateKey,
+  vapidPrivateKey
 );
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup background job to check for new newsletters
-  schedule.scheduleJob("0 */4 * * *", async function () {
+  schedule.scheduleJob('0 */6 * * *', async function() {
     try {
       const existingNewsletters = await storage.getNewsletters();
       let newNewslettersCount = 0;
 
       await scrapeNewsletters(async (newsletter) => {
         // Check if newsletter already exists
-        const exists = existingNewsletters.some(
-          (existing) => existing.url === newsletter.url,
-        );
+        const exists = existingNewsletters.some(existing => existing.url === newsletter.url);
         if (!exists) {
           await storage.importNewsletter(newsletter);
           newNewslettersCount++;
@@ -44,52 +40,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (newNewslettersCount > 0) {
-        console.log(
-          `Found ${newNewslettersCount} new newsletters, sending notifications...`,
-        );
+        console.log(`Found ${newNewslettersCount} new newsletters, sending notifications...`);
 
         // Send push notifications for new newsletters
         const subscriptions = await storage.getActiveSubscriptions();
-        console.log(
-          `Sending notifications to ${subscriptions.length} subscribers`,
-        );
+        console.log(`Sending notifications to ${subscriptions.length} subscribers`);
 
         const notificationPayload = JSON.stringify({
-          title: "New Newsletters Available",
-          body: `${newNewslettersCount} new newsletter${newNewslettersCount > 1 ? "s" : ""} published!`,
-          icon: "/icon.png",
+          title: 'New Newsletters Available',
+          body: `${newNewslettersCount} new newsletter${newNewslettersCount > 1 ? 's' : ''} published!`,
+          icon: '/icon.png'
         });
 
         const results = await Promise.allSettled(
-          subscriptions.map((subscription) =>
-            webpush.sendNotification(
-              {
-                endpoint: subscription.endpoint,
-                keys: {
-                  auth: subscription.auth,
-                  p256dh: subscription.p256dh,
-                },
-              },
-              notificationPayload,
-            ),
-          ),
+          subscriptions.map(subscription =>
+            webpush.sendNotification({
+              endpoint: subscription.endpoint,
+              keys: {
+                auth: subscription.auth,
+                p256dh: subscription.p256dh
+              }
+            }, notificationPayload)
+          )
         );
 
-        const succeeded = results.filter(
-          (r) => r.status === "fulfilled",
-        ).length;
-        const failed = results.filter((r) => r.status === "rejected").length;
-        console.log(
-          `Push notifications sent: ${succeeded} succeeded, ${failed} failed`,
-        );
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+        console.log(`Push notifications sent: ${succeeded} succeeded, ${failed} failed`);
       }
 
       // Retry fetching details for newsletters without them
-      const newslettersWithoutDetails =
-        await storage.getNewslettersWithoutDetails();
-      const updatedNewsletters = await retryMissingDetails(
-        newslettersWithoutDetails,
-      );
+      const newslettersWithoutDetails = await storage.getNewslettersWithoutDetails();
+      const updatedNewsletters = await retryMissingDetails(newslettersWithoutDetails);
 
       for (const newsletter of updatedNewsletters) {
         if (newsletter.id) {
@@ -102,8 +84,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Updated details for newsletter: ${newsletter.title}`);
         }
       }
+
     } catch (error) {
-      console.error("Background job failed:", error);
+      console.error('Background job failed:', error);
     }
   });
 
@@ -237,43 +220,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </style>
         <div class="newsletter-embed">
           <div class="grid">
-            ${newsletters
-              .slice(0, 6)
-              .map(
-                (newsletter) => `
+            ${newsletters.slice(0, 6).map(newsletter => `
               <article class="article">
                 <h2 class="title">${newsletter.title}</h2>
                 <time class="date">${new Date(newsletter.date).toLocaleDateString()}</time>
-                ${
-                  newsletter.thumbnail
-                    ? `
+                ${newsletter.thumbnail ? `
                   <img src="${newsletter.thumbnail}" alt="${newsletter.title}" class="image">
-                `
-                    : ""
-                }
-                ${
-                  newsletter.description
-                    ? `
+                ` : ''}
+                ${newsletter.description ? `
                   <p class="description">${newsletter.description}</p>
-                `
-                    : ""
-                }
+                ` : ''}
                 <a href="${newsletter.url}" target="_blank" rel="noopener noreferrer" 
                    class="link">
                   Read more
                 </a>
               </article>
-            `,
-              )
-              .join("")}
+            `).join('')}
           </div>
         </div>
       `;
 
-      res.header("Content-Type", "text/html");
+      res.header('Content-Type', 'text/html');
       res.send(content);
     } catch (error) {
-      console.error("Error generating embedded content:", error);
+      console.error('Error generating embedded content:', error);
       res.status(500).json({ message: "Failed to generate embedded content" });
     }
   });
@@ -285,7 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/newsletters/search", async (req, res) => {
-    const query = (req.query.q as string) || "";
+    const query = req.query.q as string || "";
     const newsletters = await storage.searchNewsletters(query);
     res.json(newsletters);
   });
@@ -297,64 +267,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.importNewsletter(newsletter);
         importedCount++;
       });
-      res.json({
-        message: `Successfully imported ${importedCount} newsletters`,
-      });
+      res.json({ message: `Successfully imported ${importedCount} newsletters` });
     } catch (error) {
-      console.error("Error importing newsletters:", error);
+      console.error('Error importing newsletters:', error);
       res.status(500).json({ message: "Failed to import newsletters" });
     }
   });
 
   app.post("/api/subscriptions", async (req, res) => {
     try {
-      console.log("Received subscription request:", {
+      console.log('Received subscription request:', {
         endpoint: req.body.endpoint,
-        auth: req.body.keys?.auth ? "[present]" : "[missing]",
-        p256dh: req.body.keys?.p256dh ? "[present]" : "[missing]",
+        auth: req.body.keys?.auth ? '[present]' : '[missing]',
+        p256dh: req.body.keys?.p256dh ? '[present]' : '[missing]'
       });
 
-      if (
-        !req.body.endpoint ||
-        !req.body.keys?.auth ||
-        !req.body.keys?.p256dh
-      ) {
-        throw new Error("Invalid subscription data");
+      if (!req.body.endpoint || !req.body.keys?.auth || !req.body.keys?.p256dh) {
+        throw new Error('Invalid subscription data');
       }
 
       await storage.addSubscription({
         endpoint: req.body.endpoint,
         auth: req.body.keys.auth,
-        p256dh: req.body.keys.p256dh,
+        p256dh: req.body.keys.p256dh
       });
 
       // Test the subscription with a welcome notification
       try {
-        await webpush.sendNotification(
-          {
-            endpoint: req.body.endpoint,
-            keys: {
-              auth: req.body.keys.auth,
-              p256dh: req.body.keys.p256dh,
-            },
-          },
-          JSON.stringify({
-            title: "Subscription Successful",
-            body: "You will now receive notifications for new newsletters!",
-            icon: "/icon.png",
-          }),
-        );
-        console.log("Welcome notification sent successfully");
+        await webpush.sendNotification({
+          endpoint: req.body.endpoint,
+          keys: {
+            auth: req.body.keys.auth,
+            p256dh: req.body.keys.p256dh
+          }
+        }, JSON.stringify({
+          title: 'Subscription Successful',
+          body: 'You will now receive notifications for new newsletters!',
+          icon: '/icon.png'
+        }));
+        console.log('Welcome notification sent successfully');
       } catch (notifError) {
-        console.error("Failed to send welcome notification:", notifError);
+        console.error('Failed to send welcome notification:', notifError);
       }
 
       res.json({ message: "Subscription added successfully" });
     } catch (error) {
-      console.error("Error adding subscription:", error);
+      console.error('Error adding subscription:', error);
       res.status(500).json({
         message: "Failed to add subscription",
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   });
@@ -363,14 +324,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const subscriptionId = parseInt(req.params.id);
       await storage.saveNotificationSettings(subscriptionId, {
-        newsletter_notifications: req.body.newsletter_notifications,
+        newsletter_notifications: req.body.newsletter_notifications
       });
       res.json({ message: "Notification settings updated successfully" });
     } catch (error) {
-      console.error("Error updating notification settings:", error);
-      res
-        .status(500)
-        .json({ message: "Failed to update notification settings" });
+      console.error('Error updating notification settings:', error);
+      res.status(500).json({ message: "Failed to update notification settings" });
     }
   });
 
@@ -386,13 +345,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         language: "en",
         copyright: "All rights reserved",
         favicon: "https://downtowner.com/favicon.ico",
-        updated: newsletters[0]?.date
-          ? new Date(newsletters[0].date)
-          : new Date(),
+        updated: newsletters[0]?.date ? new Date(newsletters[0].date) : new Date(),
         generator: "The Downtowner RSS Feed",
         feedLinks: {
-          rss2: "https://downtowner.com/api/rss",
-        },
+          rss2: "https://downtowner.com/api/rss"
+        }
       });
 
       for (const newsletter of newsletters) {
@@ -400,16 +357,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title: newsletter.title,
           id: newsletter.url,
           link: newsletter.url,
-          description: newsletter.description || "",
+          description: newsletter.description || '',
           date: new Date(newsletter.date),
-          image: newsletter.thumbnail || undefined,
+          image: newsletter.thumbnail || undefined
         });
       }
 
-      res.type("application/xml");
+      res.type('application/xml');
       res.send(feed.rss2());
     } catch (error) {
-      console.error("Error generating RSS feed:", error);
+      console.error('Error generating RSS feed:', error);
       res.status(500).json({ message: "Failed to generate RSS feed" });
     }
   });

@@ -11,10 +11,11 @@ import {
   Calendar,
   RefreshCw,
   Share2,
+  Twitter,
+  Facebook,
+  Rss,
   Bell,
-  BellOff,
-  Download,
-  Rss
+  BellOff
 } from "lucide-react";
 import { useNewsletters, useNewsletterSearch } from "@/lib/newsletter-data";
 import { useToast } from "@/hooks/use-toast";
@@ -29,8 +30,6 @@ export default function Home() {
   const [isImporting, setIsImporting] = useState(false);
   const [page, setPage] = useState(1);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstallable, setIsInstallable] = useState(false);
   const loader = useRef(null);
   const { data: allNewsletters, isLoading, isFetching } = useNewsletters();
   const { data: searchResults } = useNewsletterSearch(searchQuery);
@@ -39,56 +38,6 @@ export default function Home() {
   const newsletters = searchQuery ? searchResults : allNewsletters;
   const paginatedNewsletters = newsletters?.slice(0, page * ITEMS_PER_PAGE);
   const isDevelopment = import.meta.env.MODE === 'development';
-
-  useEffect(() => {
-    // Listen for the beforeinstallprompt event
-    window.addEventListener('beforeinstallprompt', (e) => {
-      // Prevent Chrome 67 and earlier from automatically showing the prompt
-      e.preventDefault();
-      // Stash the event so it can be triggered later
-      setDeferredPrompt(e);
-      setIsInstallable(true);
-    });
-
-    // Listen for successful installation
-    window.addEventListener('appinstalled', () => {
-      setIsInstallable(false);
-      setDeferredPrompt(null);
-      toast({
-        title: "Success",
-        description: "The Downtowner has been installed!",
-      });
-    });
-  }, [toast]);
-
-  const handleInstall = async () => {
-    if (!deferredPrompt) return;
-
-    try {
-      // Show the install prompt
-      deferredPrompt.prompt();
-      // Wait for the user to respond to the prompt
-      const { outcome } = await deferredPrompt.userChoice;
-
-      if (outcome === 'accepted') {
-        toast({
-          title: "Installing...",
-          description: "The Downtowner is being installed on your device",
-        });
-      }
-
-      // Clear the deferredPrompt for the next time
-      setDeferredPrompt(null);
-      setIsInstallable(false);
-    } catch (error) {
-      console.error('Error installing PWA:', error);
-      toast({
-        title: "Error",
-        description: "Failed to install the application",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleImport = async () => {
     try {
@@ -248,22 +197,12 @@ export default function Home() {
                 <Bell className="h-4 w-4" />
               )}
             </Button>
-            {isInstallable && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleInstall}
-                title="Install app"
-              >
-                <Download className="h-4 w-4" />
-              </Button>
-            )}
             <Button
               variant="outline"
               size="icon"
               asChild
             >
-              <a href="/api/rss" target="_blank" rel="noopener noreferrer" title="RSS Feed">
+              <a href="/api/rss" target="_blank" rel="noopener noreferrer">
                 <Rss className="h-4 w-4" />
               </a>
             </Button>
