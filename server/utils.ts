@@ -8,9 +8,13 @@ const ROBLY_ARCHIVE_URL =
 async function scrapeNewsletterContent(
   url: string,
   retryCount = 0,
-): Promise<{ thumbnail: string | null; content: string | null; hasDetails: boolean }> {
+): Promise<{
+  thumbnail: string | null;
+  content: string | null;
+  hasDetails: boolean;
+}> {
   try {
-    const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 1000);
+    const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 10000);
     if (retryCount > 0) {
       await new Promise((resolve) => setTimeout(resolve, backoffTime));
     }
@@ -50,7 +54,7 @@ async function scrapeNewsletterContent(
   } catch (error: any) {
     if (
       (error.response?.status === 429 || error.code === "ECONNRESET") &&
-      retryCount < 1
+      retryCount < 5
     ) {
       console.log(
         `Rate limited or connection reset, attempt ${retryCount + 1}/5`,
@@ -63,7 +67,7 @@ async function scrapeNewsletterContent(
 }
 
 export async function scrapeNewsletters(
-  onNewsletterProcessed?: (newsletter: InsertNewsletter) => Promise<void>
+  onNewsletterProcessed?: (newsletter: InsertNewsletter) => Promise<void>,
 ): Promise<InsertNewsletter[]> {
   try {
     const { data } = await axios.get(ROBLY_ARCHIVE_URL, {
@@ -96,7 +100,8 @@ export async function scrapeNewsletters(
           const date = new Date(dateStr).toISOString().split("T")[0];
           const fullUrl = `https://app.robly.com${url}`;
 
-          const { thumbnail, content, hasDetails } = await scrapeNewsletterContent(fullUrl);
+          const { thumbnail, content, hasDetails } =
+            await scrapeNewsletterContent(fullUrl);
 
           const newsletter: InsertNewsletter = {
             title: title.trim(),
@@ -113,7 +118,9 @@ export async function scrapeNewsletters(
           }
 
           newsletters.push(newsletter);
-          console.log(`Processed newsletter: ${title} (hasDetails: ${hasDetails})`);
+          console.log(
+            `Processed newsletter: ${title} (hasDetails: ${hasDetails})`,
+          );
         } catch (err) {
           console.warn(
             "Error processing date for newsletter:",
@@ -147,15 +154,21 @@ export async function scrapeNewsletters(
   }
 }
 
-export async function retryMissingDetails(newsletters: Newsletter[]): Promise<InsertNewsletter[]> {
-  const newslettersWithoutDetails = newsletters.filter(n => !n.hasDetails);
-  console.log(`Found ${newslettersWithoutDetails.length} newsletters without details to retry`);
+export async function retryMissingDetails(
+  newsletters: Newsletter[],
+): Promise<InsertNewsletter[]> {
+  const newslettersWithoutDetails = newsletters.filter((n) => !n.hasDetails);
+  console.log(
+    `Found ${newslettersWithoutDetails.length} newsletters without details to retry`,
+  );
 
   const updatedNewsletters: InsertNewsletter[] = [];
 
   for (const newsletter of newslettersWithoutDetails) {
     try {
-      const { thumbnail, content, hasDetails } = await scrapeNewsletterContent(newsletter.url);
+      const { thumbnail, content, hasDetails } = await scrapeNewsletterContent(
+        newsletter.url,
+      );
 
       if (hasDetails) {
         updatedNewsletters.push({
@@ -168,7 +181,10 @@ export async function retryMissingDetails(newsletters: Newsletter[]): Promise<In
         console.log(`Successfully retrieved details for: ${newsletter.title}`);
       }
     } catch (error) {
-      console.error(`Failed to retrieve details for ${newsletter.title}:`, error);
+      console.error(
+        `Failed to retrieve details for ${newsletter.title}:`,
+        error,
+      );
     }
   }
 

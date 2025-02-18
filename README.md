@@ -17,7 +17,7 @@ class NewsletterEmbed extends HTMLElement {
 
     async connectedCallback() {
         try {
-            const response = await fetch('https://your-repl-url/embed');
+            const response = await fetch('https://downtowner.terrible.dev/embed');
             const html = await response.text();
             this.shadowRoot.innerHTML = html;
         } catch (error) {
