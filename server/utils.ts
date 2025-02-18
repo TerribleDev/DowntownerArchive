@@ -26,13 +26,9 @@ async function scrapeNewsletterContent(
       timeout: 15000,
     });
 
-    if (
-      data.includes("AwsWafIntegration.checkForceRefresh") &&
-      retryCount < 1
-    ) {
-      console.log(`AWS WAF detected, waiting before retry ${retryCount + 1}/3`);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      return scrapeNewsletterContent(url, retryCount + 1);
+    if (data.includes("AwsWafIntegration.checkForceRefresh")) {
+      console.log(`AWS WAF detected, skipping content scraping`);
+      return { thumbnail: null, content: null, hasDetails: false };
     }
 
     const $ = cheerio.load(data);
