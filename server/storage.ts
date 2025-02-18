@@ -47,7 +47,23 @@ export class DatabaseStorage implements IStorage {
       await db.insert(newsletters).values(newsletter);
     } catch (error: any) {
       if (error.code === '23505') { // PostgreSQL unique violation code
-        console.log(`Newsletter with URL ${newsletter.url} already exists, skipping`);
+        // Update existing newsletter instead of skipping
+        const existingNewsletter = await db
+          .select()
+          .from(newsletters)
+          .where(eq(newsletters.url, newsletter.url))
+          .limit(1);
+
+        if (existingNewsletter.length > 0) {
+          await db
+            .update(newsletters)
+            .set({
+              ...newsletter,
+              last_checked: new Date(),
+            })
+            .where(eq(newsletters.url, newsletter.url));
+          console.log(`Updated existing newsletter: ${newsletter.title}`);
+        }
       } else {
         throw error;
       }
