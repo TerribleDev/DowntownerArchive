@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +21,7 @@ import {
   Facebook,
   Rss,
   Bell,
-  BellOff
+  BellOff,
 } from "lucide-react";
 import { useNewsletters, useNewsletterSearch } from "@/lib/newsletter-data";
 import { useToast } from "@/hooks/use-toast";
@@ -37,13 +43,13 @@ export default function Home() {
 
   const newsletters = searchQuery ? searchResults : allNewsletters;
   const paginatedNewsletters = newsletters?.slice(0, page * ITEMS_PER_PAGE);
-  const isDevelopment = import.meta.env.MODE === 'development';
+  const isDevelopment = import.meta.env.MODE === "development";
 
   const handleImport = async () => {
     try {
       setIsImporting(true);
-      await apiRequest('POST', '/api/newsletters/import');
-      await queryClient.invalidateQueries({ queryKey: ['/api/newsletters'] });
+      await apiRequest("POST", "/api/newsletters/import");
+      await queryClient.invalidateQueries({ queryKey: ["/api/newsletters"] });
       toast({
         title: "Success",
         description: "Newsletters imported successfully",
@@ -64,11 +70,13 @@ export default function Home() {
       try {
         await navigator.share({
           title: newsletter.title,
-          text: newsletter.description || "Check out this newsletter from The Downtowner",
-          url: newsletter.url
+          text:
+            newsletter.description ||
+            "Check out this newsletter from The Downtowner",
+          url: newsletter.url,
         });
       } catch (error) {
-        if (error.name !== 'AbortError') {
+        if (error.name !== "AbortError") {
           toast({
             title: "Error",
             description: "Failed to share newsletter",
@@ -81,45 +89,51 @@ export default function Home() {
 
   const handleSubscribe = async () => {
     try {
-      if (!('serviceWorker' in navigator) || !('Notification' in window)) {
-        throw new Error('Push notifications are not supported');
+      if (!("serviceWorker" in navigator) || !("Notification" in window)) {
+        throw new Error("Push notifications are not supported");
       }
 
       const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        throw new Error('Notification permission denied');
+      if (permission !== "granted") {
+        throw new Error("Notification permission denied");
       }
 
-      console.log('Getting service worker registration...');
+      console.log("Getting service worker registration...");
       const registration = await navigator.serviceWorker.ready;
-      console.log('Service worker registered successfully');
+      console.log("Service worker registered successfully");
 
       const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
-        throw new Error('VAPID public key is not configured');
+        throw new Error("VAPID public key is not configured");
       }
-      console.log('VAPID public key available:', vapidPublicKey.slice(0, 10) + '...');
+      console.log(
+        "VAPID public key available:",
+        vapidPublicKey.slice(0, 10) + "...",
+      );
 
       const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
-      console.log('Converted VAPID key length:', convertedVapidKey.length);
-      console.log('First few bytes:', Array.from(convertedVapidKey.slice(0, 5)));
+      console.log("Converted VAPID key length:", convertedVapidKey.length);
+      console.log(
+        "First few bytes:",
+        Array.from(convertedVapidKey.slice(0, 5)),
+      );
 
-      console.log('Requesting push subscription...');
+      console.log("Requesting push subscription...");
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: convertedVapidKey
+        applicationServerKey: convertedVapidKey,
       });
-      console.log('Successfully subscribed to push notifications');
+      console.log("Successfully subscribed to push notifications");
 
-      console.log('Sending subscription to server...');
-      await apiRequest('POST', '/api/subscriptions', subscription);
+      console.log("Sending subscription to server...");
+      await apiRequest("POST", "/api/subscriptions", subscription);
       setIsSubscribed(true);
       toast({
         title: "Subscribed!",
         description: "You'll receive notifications for new newsletters",
       });
     } catch (error: any) {
-      console.error('Subscription error:', error);
+      console.error("Subscription error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to subscribe to notifications",
@@ -128,18 +142,24 @@ export default function Home() {
     }
   };
 
-  const handleObserver = useCallback((entries) => {
-    const target = entries[0];
-    if (target.isIntersecting && newsletters?.length > page * ITEMS_PER_PAGE) {
-      setPage(prev => prev + 1);
-    }
-  }, [newsletters, page]);
+  const handleObserver = useCallback(
+    (entries) => {
+      const target = entries[0];
+      if (
+        target.isIntersecting &&
+        newsletters?.length > page * ITEMS_PER_PAGE
+      ) {
+        setPage((prev) => prev + 1);
+      }
+    },
+    [newsletters, page],
+  );
 
   useEffect(() => {
     const observer = new IntersectionObserver(handleObserver, {
       root: null,
       rootMargin: "20px",
-      threshold: 1.0
+      threshold: 1.0,
     });
 
     if (loader.current) {
@@ -182,7 +202,9 @@ export default function Home() {
                 onClick={handleImport}
                 disabled={isImporting}
               >
-                <RefreshCw className={`h-4 w-4 ${isImporting ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${isImporting ? "animate-spin" : ""}`}
+                />
               </Button>
             )}
             <Button
@@ -197,11 +219,7 @@ export default function Home() {
                 <Bell className="h-4 w-4" />
               )}
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              asChild
-            >
+            <Button variant="outline" size="icon" asChild>
               <a href="/api/rss" target="_blank" rel="noopener noreferrer">
                 <Rss className="h-4 w-4" />
               </a>
@@ -211,25 +229,27 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence>
-            {(isLoading || isFetching) ? (
-              Array(6).fill(0).map((_, i) => (
-                <motion.div
-                  key={`skeleton-${i}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <Card className="hover:shadow-lg transition-shadow h-full">
-                    <CardHeader>
-                      <Skeleton className="h-6 w-2/3" />
-                      <Skeleton className="h-4 w-1/2" />
-                    </CardHeader>
-                    <CardContent>
-                      <Skeleton className="h-4 w-full" />
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))
+            {isLoading || isFetching ? (
+              Array(6)
+                .fill(0)
+                .map((_, i) => (
+                  <motion.div
+                    key={`skeleton-${i}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <Card className="hover:shadow-lg transition-shadow h-full">
+                      <CardHeader>
+                        <Skeleton className="h-6 w-2/3" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-4 w-full" />
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))
             ) : paginatedNewsletters?.length ? (
               paginatedNewsletters.map((newsletter) => (
                 <motion.div
@@ -245,10 +265,12 @@ export default function Home() {
                     rel="noopener noreferrer"
                     className="block"
                   >
-                    <Card className="h-full hover:shadow-lg transition-all duration-300 cursor-pointer group">
+                    <Card className="h-full hover:shadow-lg transition-all duration-300 cursor-pointer group h-full">
                       <CardHeader>
                         <CardTitle className="flex items-center justify-between gap-2">
-                          <span className="line-clamp-2 flex-1">{newsletter.title}</span>
+                          <span className="line-clamp-2 flex-1">
+                            {newsletter.title}
+                          </span>
                           <div className="flex items-center gap-2 shrink-0">
                             <Button
                               variant="ghost"
@@ -269,7 +291,7 @@ export default function Home() {
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                window.open(newsletter.url, '_blank');
+                                window.open(newsletter.url, "_blank");
                               }}
                             >
                               <ExternalLink className="h-4 w-4" />
@@ -278,7 +300,7 @@ export default function Home() {
                         </CardTitle>
                         <CardDescription className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          {format(new Date(newsletter.date), 'MMMM d, yyyy')}
+                          {format(new Date(newsletter.date), "MMMM d, yyyy")}
                         </CardDescription>
                       </CardHeader>
                       {(newsletter.thumbnail || newsletter.description) && (
