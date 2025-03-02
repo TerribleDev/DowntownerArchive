@@ -163,6 +163,17 @@ export default function Home() {
       rootMargin: "20px",
       threshold: 0.5,
     });
+    
+    if (loader.current) {
+      observer.observe(loader.current);
+    }
+    
+    return () => {
+      if (loader.current) {
+        observer.unobserve(loader.current);
+      }
+    };
+  }, [handleObserver, loader]);
 
     if (loader.current) {
       observer.observe(loader.current);
