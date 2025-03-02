@@ -308,6 +308,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to import newsletters" });
     }
   });
+  
+  app.post("/api/notifications/test", async (_req, res) => {
+    try {
+      const subscriptions = await storage.getActiveSubscriptions();
+      console.log(`Sending test notification to ${subscriptions.length} subscribers`);
+      
+      const notificationPayload = JSON.stringify({
+        title: "Test Notification",
+        body: "This is a test notification from The Downtowner",
+        icon: "/icon.png",
+      });
+      
+      const results = await Promise.allSettled(
+        subscriptions.map((subscription) =>
+          webpush.sendNotification(
+            {
+              endpoint: subscription.endpoint,
+              keys: {
+                auth: subscription.auth,
+                p256dh: subscription.p256dh,
+              },
+            },
+            notificationPayload,
+          ),
+        ),
+      );
+      
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.filter((r) => r.status === "rejected").length;
+      console.log(`Test notifications sent: ${succeeded} succeeded, ${failed} failed`);
+      
+      res.json({
+        message: `Test notifications sent: ${succeeded} succeeded, ${failed} failed`,
+        totalSubscribers: subscriptions.length,
+      });
+    } catch (error) {
+      console.error("Error sending test notifications:", error);
+      res.status(500).json({ message: "Failed to send test notifications" });
+    }
+  });
 
   app.post("/api/subscriptions", async (req, res) => {
     try {
