@@ -95,35 +95,20 @@ export default function Home() {
   const handleImport = async () => {
     try {
       setIsImporting(true);
-      const response = await apiRequest("POST", "/api/newsletters/import");
+      await apiRequest("POST", "/api/newsletters/import");
+      await queryClient.invalidateQueries({ queryKey: ["/api/newsletters"] });
       toast({
         title: "Success",
-        description: response.message,
+        description: "Newsletters imported successfully",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to import newsletters",
+        description: "Failed to import newsletters",
         variant: "destructive",
       });
     } finally {
       setIsImporting(false);
-    }
-  };
-
-  const handleTestNotification = async () => {
-    try {
-      const response = await apiRequest("POST", "/api/notifications/test");
-      toast({
-        title: "Notifications Sent",
-        description: `${response.message} (${response.totalSubscribers} subscribers)`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send test notifications",
-        variant: "destructive",
-      });
     }
   };
 
@@ -267,11 +252,6 @@ export default function Home() {
                 <RefreshCw
                   className={`h-4 w-4 ${isImporting ? "animate-spin" : ""}`}
                 />
-              </Button>
-            )}
-            {isDevelopment && (
-              <Button variant="outline" size="icon" onClick={handleTestNotification}>
-                Test Notification
               </Button>
             )}
             <Button
