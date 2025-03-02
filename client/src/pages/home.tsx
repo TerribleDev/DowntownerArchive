@@ -219,7 +219,7 @@ export default function Home() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
-                  <Card className="hover:shadow-lg transition-shadow">
+                  <Card className="hover:shadow-lg transition-shadow h-full">
                     <CardHeader>
                       <Skeleton className="h-6 w-2/3" />
                       <Skeleton className="h-4 w-1/2" />
