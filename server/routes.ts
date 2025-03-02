@@ -279,15 +279,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // API Routes
-  app.get("/api/newsletters", async (_req, res) => {
-    const newsletters = await storage.getNewsletters();
-    res.json(newsletters);
+  app.get("/api/newsletters", async (req, res) => {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const { newsletters, total } = await storage.getNewslettersPaginated(page, limit);
+    res.json({ newsletters, total, page, limit });
   });
 
   app.get("/api/newsletters/search", async (req, res) => {
     const query = (req.query.q as string) || "";
-    const newsletters = await storage.searchNewsletters(query);
-    res.json(newsletters);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const { newsletters, total } = await storage.searchNewslettersPaginated(query, page, limit);
+    res.json({ newsletters, total, page, limit });
   });
 
   app.post("/api/newsletters/import", async (_req, res) => {

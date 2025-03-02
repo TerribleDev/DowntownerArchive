@@ -37,12 +37,12 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const loader = useRef(null);
-  const { data: allNewsletters, isLoading, isFetching } = useNewsletters();
+  const { data: allNewsletters, isLoading, isFetching, hasMorePages } = useNewsletters(page, ITEMS_PER_PAGE);
   const { data: searchResults } = useNewsletterSearch(searchQuery);
   const { toast } = useToast();
 
   const newsletters = searchQuery ? searchResults : allNewsletters;
-  const paginatedNewsletters = newsletters?.slice(0, page * ITEMS_PER_PAGE);
+  //const paginatedNewsletters = newsletters?.slice(0, page * ITEMS_PER_PAGE);
   const isDevelopment = import.meta.env.MODE === "development";
 
   const handleImport = async () => {
@@ -147,19 +147,21 @@ export default function Home() {
       const target = entries[0];
       if (
         target.isIntersecting &&
-        newsletters?.length > page * ITEMS_PER_PAGE
+        !isLoading &&
+        !isFetching &&
+        hasMorePages
       ) {
         setPage((prev) => prev + 1);
       }
     },
-    [newsletters, page],
+    [isLoading, isFetching, hasMorePages],
   );
 
   useEffect(() => {
     const observer = new IntersectionObserver(handleObserver, {
       root: null,
       rootMargin: "20px",
-      threshold: 1.0,
+      threshold: 0.5,
     });
 
     if (loader.current) {
@@ -250,8 +252,8 @@ export default function Home() {
                     </Card>
                   </motion.div>
                 ))
-            ) : paginatedNewsletters?.length ? (
-              paginatedNewsletters.map((newsletter) => (
+            ) : newsletters && newsletters.length > 0 ? (
+              newsletters.map((newsletter) => (
                 <motion.div
                   key={newsletter.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -331,7 +333,9 @@ export default function Home() {
           </AnimatePresence>
         </div>
 
-        <div ref={loader} className="h-20" />
+        {hasMorePages && (
+          <div ref={loader} className="h-20" />
+        )}
       </div>
     </div>
   );

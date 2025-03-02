@@ -41,6 +41,71 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(newsletters.date));
   }
+  
+  async searchNewslettersPaginated(query: string, page: number, limit: number): Promise<{newsletters: Newsletter[], total: number}> {
+    const lowercaseQuery = query.toLowerCase();
+    const offset = (page - 1) * limit;
+    
+    const newslettersQuery = db
+      .select()
+      .from(newsletters)
+      .where(
+        or(
+          ilike(newsletters.title, `%${lowercaseQuery}%`),
+          ilike(newsletters.content || '', `%${lowercaseQuery}%`),
+          ilike(newsletters.description || '', `%${lowercaseQuery}%`)
+        )
+      )
+      .orderBy(desc(newsletters.date))
+      .limit(limit)
+      .offset(offset);
+      
+    const countQuery = db
+      .select({ count: sql<number>`count(*)` })
+      .from(newsletters)
+      .where(
+        or(
+          ilike(newsletters.title, `%${lowercaseQuery}%`),
+          ilike(newsletters.content || '', `%${lowercaseQuery}%`),
+          ilike(newsletters.description || '', `%${lowercaseQuery}%`)
+        )
+      );
+      
+    const [results, countResult] = await Promise.all([
+      newslettersQuery,
+      countQuery
+    ]);
+    
+    return {
+      newsletters: results,
+      total: countResult[0]?.count || 0
+    };
+  }
+  
+  async getNewslettersPaginated(page: number, limit: number): Promise<{newsletters: Newsletter[], total: number}> {
+    const offset = (page - 1) * limit;
+    
+    const newslettersQuery = db
+      .select()
+      .from(newsletters)
+      .orderBy(desc(newsletters.date))
+      .limit(limit)
+      .offset(offset);
+      
+    const countQuery = db
+      .select({ count: sql<number>`count(*)` })
+      .from(newsletters);
+      
+    const [results, countResult] = await Promise.all([
+      newslettersQuery,
+      countQuery
+    ]);
+    
+    return {
+      newsletters: results,
+      total: countResult[0]?.count || 0
+    };
+  }
 
   async importNewsletter(newsletter: InsertNewsletter): Promise<void> {
     try {
