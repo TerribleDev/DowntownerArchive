@@ -22,9 +22,12 @@ import {
   Rss,
   Bell,
   BellOff,
-  BellRing,
 } from "lucide-react";
-import { useNewsletters, useNewsletterSearch, type NewslettersResponse } from "@/lib/newsletter-data";
+import {
+  useNewsletters,
+  useNewsletterSearch,
+  type NewslettersResponse,
+} from "@/lib/newsletter-data";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
@@ -36,7 +39,6 @@ const ITEMS_PER_PAGE = 20;
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isImporting, setIsImporting] = useState(false);
-  const [isSendingTestNotification, setIsSendingTestNotification] = useState(false);
   const [page, setPage] = useState(1);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [allItems, setAllItems] = useState<Newsletter[]>([]);
@@ -63,8 +65,9 @@ export default function Home() {
   const isCurrentFetching = searchQuery ? isSearchFetching : isFetching;
 
   // Check if there are more pages to load
-  const hasMorePages = currentData ? 
-    (currentData.page * currentData.limit < currentData.total) : false;
+  const hasMorePages = currentData
+    ? currentData.page * currentData.limit < currentData.total
+    : false;
 
   // Merge newsletter items when data changes
   useEffect(() => {
@@ -75,12 +78,16 @@ export default function Home() {
       setAllItems(currentData.newsletters);
     } else {
       // Merge items, ensuring we don't have duplicates
-      setAllItems(prevItems => {
+      setAllItems((prevItems) => {
         // Create a set of IDs from new items for faster lookups
-        const newItemIds = new Set(currentData.newsletters.map(item => item.id));
+        const newItemIds = new Set(
+          currentData.newsletters.map((item) => item.id),
+        );
 
         // Filter out any previous items that would be duplicated
-        const filteredPrevItems = prevItems.filter(item => !newItemIds.has(item.id));
+        const filteredPrevItems = prevItems.filter(
+          (item) => !newItemIds.has(item.id),
+        );
 
         // Combine previous (non-duplicate) items with new items
         return [...filteredPrevItems, ...currentData.newsletters];
@@ -97,20 +104,35 @@ export default function Home() {
   const handleImport = async () => {
     try {
       setIsImporting(true);
-      await apiRequest("POST", "/api/newsletters/import");
-      await queryClient.invalidateQueries({ queryKey: ["/api/newsletters"] });
+      const response = await apiRequest("POST", "/api/newsletters/import");
       toast({
         title: "Success",
-        description: "Newsletters imported successfully",
+        description: response.message,
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to import newsletters",
+        description: error.message || "Failed to import newsletters",
         variant: "destructive",
       });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      const response = await apiRequest("POST", "/api/notifications/test");
+      toast({
+        title: "Notifications Sent",
+        description: `${response.message} (${response.totalSubscribers} subscribers)`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send test notifications",
+        variant: "destructive",
+      });
     }
   };
 
@@ -133,25 +155,6 @@ export default function Home() {
           });
         }
       }
-    }
-  };
-
-  const handleSendTestNotification = async () => {
-    try {
-      setIsSendingTestNotification(true);
-      const response = await apiRequest("POST", "/api/notifications/test");
-      toast({
-        title: "Test Notifications Sent",
-        description: `Results: ${response.succeeded} succeeded, ${response.failed} failed out of ${response.total} subscriptions`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send test notifications",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSendingTestNotification(false);
     }
   };
 
@@ -210,13 +213,21 @@ export default function Home() {
     }
   };
 
-  const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
-    const target = entries[0];
-    if (target.isIntersecting && !isCurrentLoading && !isCurrentFetching && hasMorePages) {
-      console.log("Loading more newsletters. Current page:", page);
-      setPage((prev) => prev + 1);
-    }
-  }, [isCurrentLoading, isCurrentFetching, hasMorePages, page]);
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const target = entries[0];
+      if (
+        target.isIntersecting &&
+        !isCurrentLoading &&
+        !isCurrentFetching &&
+        hasMorePages
+      ) {
+        console.log("Loading more newsletters. Current page:", page);
+        setPage((prev) => prev + 1);
+      }
+    },
+    [isCurrentLoading, isCurrentFetching, hasMorePages, page],
+  );
 
   useEffect(() => {
     const currentLoader = loader.current;
@@ -264,29 +275,25 @@ export default function Home() {
               />
             </div>
             {isDevelopment && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleImport}
-                  disabled={isImporting}
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${isImporting ? "animate-spin" : ""}`}
-                  />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleSendTestNotification}
-                  disabled={isSendingTestNotification}
-                  title="Send test notification to all subscribers"
-                >
-                  <BellRing
-                    className={`h-4 w-4 ${isSendingTestNotification ? "animate-pulse" : ""}`}
-                  />
-                </Button>
-              </>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleImport}
+                disabled={isImporting}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isImporting ? "animate-spin" : ""}`}
+                />
+              </Button>
+            )}
+            {isDevelopment && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleTestNotification}
+              >
+                Test Notification
+              </Button>
             )}
             <Button
               variant="outline"
@@ -414,7 +421,10 @@ export default function Home() {
 
         {/* Loading indicator at bottom */}
         {hasMorePages && (
-          <div ref={loader} className="h-20 my-4 flex justify-center items-center">
+          <div
+            ref={loader}
+            className="h-20 my-4 flex justify-center items-center"
+          >
             {isCurrentFetching && page > 1 && (
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             )}
