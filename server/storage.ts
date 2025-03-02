@@ -1,6 +1,14 @@
-import { type Newsletter, type InsertNewsletter, type Subscription, type InsertSubscription, newsletters, subscriptions, notificationSettings } from "@shared/schema";
+import {
+  type Newsletter,
+  type InsertNewsletter,
+  type Subscription,
+  type InsertSubscription,
+  newsletters,
+  subscriptions,
+  notificationSettings,
+} from "@shared/schema";
 import { db } from "./db";
-import { desc, ilike, or, eq } from "drizzle-orm";
+import { desc, ilike, or, eq, sql } from "drizzle-orm";
 
 export interface IStorage {
   getNewsletters(): Promise<Newsletter[]>;
@@ -8,7 +16,10 @@ export interface IStorage {
   searchNewsletters(query: string): Promise<Newsletter[]>;
   importNewsletters(newsletters: InsertNewsletter[]): Promise<void>;
   importNewsletter(newsletter: InsertNewsletter): Promise<void>;
-  updateNewsletterDetails(id: number, updates: Partial<InsertNewsletter>): Promise<void>;
+  updateNewsletterDetails(
+    id: number,
+    updates: Partial<InsertNewsletter>,
+  ): Promise<void>;
   addSubscription(subscription: InsertSubscription): Promise<void>;
   getSubscriptions(): Promise<Subscription[]>;
   getActiveSubscriptions(): Promise<Subscription[]>;
@@ -35,75 +46,82 @@ export class DatabaseStorage implements IStorage {
       .where(
         or(
           ilike(newsletters.title, `%${lowercaseQuery}%`),
-          ilike(newsletters.content || '', `%${lowercaseQuery}%`),
-          ilike(newsletters.description || '', `%${lowercaseQuery}%`)
-        )
+          ilike(newsletters.content || "", `%${lowercaseQuery}%`),
+          ilike(newsletters.description || "", `%${lowercaseQuery}%`),
+        ),
       )
       .orderBy(desc(newsletters.date));
   }
-  
-  async searchNewslettersPaginated(query: string, page: number, limit: number): Promise<{newsletters: Newsletter[], total: number}> {
+
+  async searchNewslettersPaginated(
+    query: string,
+    page: number,
+    limit: number,
+  ): Promise<{ newsletters: Newsletter[]; total: number }> {
     const lowercaseQuery = query.toLowerCase();
     const offset = (page - 1) * limit;
-    
+
     const newslettersQuery = db
       .select()
       .from(newsletters)
       .where(
         or(
           ilike(newsletters.title, `%${lowercaseQuery}%`),
-          ilike(newsletters.content || '', `%${lowercaseQuery}%`),
-          ilike(newsletters.description || '', `%${lowercaseQuery}%`)
-        )
+          ilike(newsletters.content || "", `%${lowercaseQuery}%`),
+          ilike(newsletters.description || "", `%${lowercaseQuery}%`),
+        ),
       )
       .orderBy(desc(newsletters.date))
       .limit(limit)
       .offset(offset);
-      
+
     const countQuery = db
       .select({ count: sql<number>`count(*)` })
       .from(newsletters)
       .where(
         or(
           ilike(newsletters.title, `%${lowercaseQuery}%`),
-          ilike(newsletters.content || '', `%${lowercaseQuery}%`),
-          ilike(newsletters.description || '', `%${lowercaseQuery}%`)
-        )
+          ilike(newsletters.content || "", `%${lowercaseQuery}%`),
+          ilike(newsletters.description || "", `%${lowercaseQuery}%`),
+        ),
       );
-      
+
     const [results, countResult] = await Promise.all([
       newslettersQuery,
-      countQuery
+      countQuery,
     ]);
-    
+
     return {
       newsletters: results,
-      total: countResult[0]?.count || 0
+      total: countResult[0]?.count || 0,
     };
   }
-  
-  async getNewslettersPaginated(page: number, limit: number): Promise<{newsletters: Newsletter[], total: number}> {
+
+  async getNewslettersPaginated(
+    page: number,
+    limit: number,
+  ): Promise<{ newsletters: Newsletter[]; total: number }> {
     const offset = (page - 1) * limit;
-    
+
     const newslettersQuery = db
       .select()
       .from(newsletters)
       .orderBy(desc(newsletters.date))
       .limit(limit)
       .offset(offset);
-      
+
     const countQuery = db
       .select({ count: sql<number>`count(*)` })
       .from(newsletters);
-      
+
     const [results, countResult] = await Promise.all([
       newslettersQuery,
-      countQuery
+      countQuery,
     ]);
-    
+
     return {
       newsletters: results,
-      total: countResult[0]?.count || 0
+      total: countResult[0]?.count || 0,
     };
   }
 
@@ -111,7 +129,8 @@ export class DatabaseStorage implements IStorage {
     try {
       await db.insert(newsletters).values(newsletter);
     } catch (error: any) {
-      if (error.code === '23505') { // PostgreSQL unique violation code
+      if (error.code === "23505") {
+        // PostgreSQL unique violation code
         // Update existing newsletter instead of skipping
         const existingNewsletter = await db
           .select()
@@ -141,7 +160,10 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateNewsletterDetails(id: number, updates: Partial<InsertNewsletter>): Promise<void> {
+  async updateNewsletterDetails(
+    id: number,
+    updates: Partial<InsertNewsletter>,
+  ): Promise<void> {
     await db
       .update(newsletters)
       .set({
@@ -163,16 +185,16 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select({
         subscription: subscriptions,
-        settings: notificationSettings
+        settings: notificationSettings,
       })
       .from(subscriptions)
       .leftJoin(
         notificationSettings,
-        eq(subscriptions.id, notificationSettings.subscription_id)
+        eq(subscriptions.id, notificationSettings.subscription_id),
       )
       .where(eq(notificationSettings.newsletter_notifications, true));
 
-    return result.map(r => r.subscription);
+    return result.map((r) => r.subscription);
   }
 }
 

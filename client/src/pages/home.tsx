@@ -37,7 +37,12 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const loader = useRef(null);
-  const { data: allNewsletters, isLoading, isFetching, hasMorePages } = useNewsletters(page, ITEMS_PER_PAGE);
+  const {
+    data: allNewsletters,
+    isLoading,
+    isFetching,
+    hasMorePages,
+  } = useNewsletters(page, ITEMS_PER_PAGE);
   const { data: searchResults } = useNewsletterSearch(searchQuery);
   const { toast } = useToast();
 
@@ -145,12 +150,7 @@ export default function Home() {
   const handleObserver = useCallback(
     (entries) => {
       const target = entries[0];
-      if (
-        target.isIntersecting &&
-        !isLoading &&
-        !isFetching &&
-        hasMorePages
-      ) {
+      if (target.isIntersecting && !isLoading && !isFetching && hasMorePages) {
         setPage((prev) => prev + 1);
       }
     },
@@ -252,8 +252,8 @@ export default function Home() {
                     </Card>
                   </motion.div>
                 ))
-            ) : newsletters && newsletters.length > 0 ? (
-              newsletters.map((newsletter) => (
+            ) : newsletters && newsletters.newsletters.length > 0 ? (
+              newsletters.newsletters.map((newsletter) => (
                 <motion.div
                   key={newsletter.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -333,9 +333,7 @@ export default function Home() {
           </AnimatePresence>
         </div>
 
-        {hasMorePages && (
-          <div ref={loader} className="h-20" />
-        )}
+        {hasMorePages && <div ref={loader} className="h-20" />}
       </div>
     </div>
   );
