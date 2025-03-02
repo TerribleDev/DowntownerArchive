@@ -22,6 +22,7 @@ import {
   Rss,
   Bell,
   BellOff,
+  BellRing,
 } from "lucide-react";
 import { useNewsletters, useNewsletterSearch, type NewslettersResponse } from "@/lib/newsletter-data";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +36,7 @@ const ITEMS_PER_PAGE = 20;
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [isSendingTestNotification, setIsSendingTestNotification] = useState(false);
   const [page, setPage] = useState(1);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [allItems, setAllItems] = useState<Newsletter[]>([]);
@@ -131,6 +133,25 @@ export default function Home() {
           });
         }
       }
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    try {
+      setIsSendingTestNotification(true);
+      const response = await apiRequest("POST", "/api/notifications/test");
+      toast({
+        title: "Test Notifications Sent",
+        description: `Results: ${response.succeeded} succeeded, ${response.failed} failed out of ${response.total} subscriptions`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send test notifications",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingTestNotification(false);
     }
   };
 
@@ -243,16 +264,29 @@ export default function Home() {
               />
             </div>
             {isDevelopment && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleImport}
-                disabled={isImporting}
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${isImporting ? "animate-spin" : ""}`}
-                />
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleImport}
+                  disabled={isImporting}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${isImporting ? "animate-spin" : ""}`}
+                  />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleSendTestNotification}
+                  disabled={isSendingTestNotification}
+                  title="Send test notification to all subscribers"
+                >
+                  <BellRing
+                    className={`h-4 w-4 ${isSendingTestNotification ? "animate-pulse" : ""}`}
+                  />
+                </Button>
+              </>
             )}
             <Button
               variant="outline"

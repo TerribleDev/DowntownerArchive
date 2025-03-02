@@ -309,6 +309,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // New endpoint for sending test notifications to all subscribers
+  app.post("/api/notifications/test", async (_req, res) => {
+    try {
+      // Only allow this in development mode
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(403).json({ message: "This endpoint is only available in development mode" });
+      }
+
+      const subscriptions = await storage.getActiveSubscriptions();
+
+      if (subscriptions.length === 0) {
+        return res.status(200).json({ message: "No active subscriptions found" });
+      }
+
+      console.log(`Sending test notification to ${subscriptions.length} subscribers`);
+
+      const notificationPayload = JSON.stringify({
+        title: "Test Notification",
+        body: "This is a test notification from The Downtowner",
+        icon: "/icon.png",
+      });
+
+      const results = await Promise.allSettled(
+        subscriptions.map((subscription) =>
+          webpush.sendNotification(
+            {
+              endpoint: subscription.endpoint,
+              keys: {
+                auth: subscription.auth,
+                p256dh: subscription.p256dh,
+              },
+            },
+            notificationPayload,
+          ),
+        ),
+      );
+
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.filter((r) => r.status === "rejected").length;
+
+      console.log(`Test notification results: ${succeeded} succeeded, ${failed} failed`);
+
+      res.status(200).json({ 
+        message: `Test notifications sent: ${succeeded} succeeded, ${failed} failed`,
+        succeeded,
+        failed,
+        total: subscriptions.length
+      });
+    } catch (error) {
+      console.error("Error sending test notifications:", error);
+      res.status(500).json({ 
+        message: "Failed to send test notifications",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
   app.post("/api/subscriptions", async (req, res) => {
     try {
       console.log("Received subscription request:", {
