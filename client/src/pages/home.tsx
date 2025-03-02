@@ -23,11 +23,12 @@ import {
   Bell,
   BellOff,
 } from "lucide-react";
-import { useNewsletters, useNewsletterSearch } from "@/lib/newsletter-data";
+import { useNewsletters, useNewsletterSearch, type NewslettersResponse } from "@/lib/newsletter-data";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
+import type { Newsletter } from "@shared/schema";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -36,19 +37,60 @@ export default function Home() {
   const [isImporting, setIsImporting] = useState(false);
   const [page, setPage] = useState(1);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const loader = useRef(null);
+  const [allItems, setAllItems] = useState<Newsletter[]>([]);
+  const loader = useRef<HTMLDivElement>(null);
+
   const {
-    data: allNewsletters,
+    data: newslettersData,
     isLoading,
     isFetching,
-    hasMorePages,
   } = useNewsletters(page, ITEMS_PER_PAGE);
-  const { data: searchResults } = useNewsletterSearch(searchQuery);
-  const { toast } = useToast();
 
-  const newsletters = searchQuery ? searchResults : allNewsletters;
-  //const paginatedNewsletters = newsletters?.slice(0, page * ITEMS_PER_PAGE);
+  const {
+    data: searchData,
+    isLoading: isSearchLoading,
+    isFetching: isSearchFetching,
+  } = useNewsletterSearch(searchQuery, page, ITEMS_PER_PAGE);
+
+  const { toast } = useToast();
   const isDevelopment = import.meta.env.MODE === "development";
+
+  // Determine which data source to use and calculate hasMorePages
+  const currentData = searchQuery ? searchData : newslettersData;
+  const isCurrentLoading = searchQuery ? isSearchLoading : isLoading;
+  const isCurrentFetching = searchQuery ? isSearchFetching : isFetching;
+
+  // Check if there are more pages to load
+  const hasMorePages = currentData ? 
+    (currentData.page * currentData.limit < currentData.total) : false;
+
+  // Merge newsletter items when data changes
+  useEffect(() => {
+    if (!currentData) return;
+
+    if (page === 1) {
+      // Reset items if we're back at page 1 (e.g., after a new search)
+      setAllItems(currentData.newsletters);
+    } else {
+      // Merge items, ensuring we don't have duplicates
+      setAllItems(prevItems => {
+        // Create a set of IDs from new items for faster lookups
+        const newItemIds = new Set(currentData.newsletters.map(item => item.id));
+
+        // Filter out any previous items that would be duplicated
+        const filteredPrevItems = prevItems.filter(item => !newItemIds.has(item.id));
+
+        // Combine previous (non-duplicate) items with new items
+        return [...filteredPrevItems, ...currentData.newsletters];
+      });
+    }
+  }, [currentData, page]);
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setPage(1);
+    setAllItems([]);
+  }, [searchQuery]);
 
   const handleImport = async () => {
     try {
@@ -70,7 +112,7 @@ export default function Home() {
     }
   };
 
-  const handleShare = async (newsletter) => {
+  const handleShare = async (newsletter: Newsletter) => {
     if (navigator.share) {
       try {
         await navigator.share({
@@ -80,7 +122,7 @@ export default function Home() {
             "Check out this newsletter from The Downtowner",
           url: newsletter.url,
         });
-      } catch (error) {
+      } catch (error: any) {
         if (error.name !== "AbortError") {
           toast({
             title: "Error",
@@ -147,33 +189,32 @@ export default function Home() {
     }
   };
 
-  const handleObserver = useCallback(
-    (entries) => {
-      const target = entries[0];
-      if (target.isIntersecting && !isLoading && !isFetching && hasMorePages) {
-        setPage((prev) => prev + 1);
-      }
-    },
-    [isLoading, isFetching, hasMorePages],
-  );
+  const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
+    const target = entries[0];
+    if (target.isIntersecting && !isCurrentLoading && !isCurrentFetching && hasMorePages) {
+      console.log("Loading more newsletters. Current page:", page);
+      setPage((prev) => prev + 1);
+    }
+  }, [isCurrentLoading, isCurrentFetching, hasMorePages, page]);
 
   useEffect(() => {
+    const currentLoader = loader.current;
     const observer = new IntersectionObserver(handleObserver, {
       root: null,
-      rootMargin: "20px",
-      threshold: 0.5,
+      rootMargin: "100px",
+      threshold: 0.1,
     });
 
-    if (loader.current) {
-      observer.observe(loader.current);
+    if (currentLoader) {
+      observer.observe(currentLoader);
     }
 
     return () => {
-      if (loader.current) {
-        observer.unobserve(loader.current);
+      if (currentLoader) {
+        observer.unobserve(currentLoader);
       }
     };
-  }, [handleObserver, loader]);
+  }, [handleObserver]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -235,7 +276,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence>
-            {isLoading || isFetching ? (
+            {isCurrentLoading && page === 1 ? (
               Array(6)
                 .fill(0)
                 .map((_, i) => (
@@ -256,8 +297,8 @@ export default function Home() {
                     </Card>
                   </motion.div>
                 ))
-            ) : newsletters && newsletters.newsletters.length > 0 ? (
-              newsletters.newsletters.map((newsletter) => (
+            ) : allItems && allItems.length > 0 ? (
+              allItems.map((newsletter) => (
                 <motion.div
                   key={newsletter.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -337,7 +378,14 @@ export default function Home() {
           </AnimatePresence>
         </div>
 
-        {hasMorePages && <div ref={loader} className="h-20" />}
+        {/* Loading indicator at bottom */}
+        {hasMorePages && (
+          <div ref={loader} className="h-20 my-4 flex justify-center items-center">
+            {isCurrentFetching && page > 1 && (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

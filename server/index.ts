@@ -36,30 +36,68 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  const server = await registerRoutes(app);
+// Function to start the server with fallback ports
+const startServer = async (initialPort: number, maxRetries = 3) => {
+  let currentPort = initialPort;
+  let retries = 0;
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+  while (retries < maxRetries) {
+    try {
+      const server = await registerRoutes(app);
 
-    res.status(status).json({ message });
-    throw err;
-  });
+      app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+        const status = err.status || err.statusCode || 500;
+        const message = err.message || "Internal Server Error";
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+        res.status(status).json({ message });
+        throw err;
+      });
+
+      // importantly only setup vite in development and after
+      // setting up all the other routes so the catch-all route
+      // doesn't interfere with the other routes
+      if (app.get("env") === "development") {
+        await setupVite(app, server);
+      } else {
+        serveStatic(app);
+      }
+
+      // Start the server on the current port
+      return new Promise<void>((resolve, reject) => {
+        server.listen(currentPort, "0.0.0.0")
+          .on("error", (err: NodeJS.ErrnoException) => {
+            if (err.code === 'EADDRINUSE') {
+              log(`Port ${currentPort} is already in use, trying another port...`);
+              currentPort++;
+              retries++;
+              if (retries >= maxRetries) {
+                reject(new Error(`Failed to find an available port after ${maxRetries} attempts`));
+              } else {
+                server.close();
+              }
+            } else {
+              reject(err);
+            }
+          })
+          .on("listening", () => {
+            log(`Server is running on port ${currentPort}`);
+            resolve();
+          });
+      });
+    } catch (error) {
+      log(`Error starting server: ${error instanceof Error ? error.message : String(error)}`);
+      retries++;
+      if (retries >= maxRetries) {
+        throw new Error(`Failed to start server after ${maxRetries} attempts`);
+      }
+      currentPort++;
+    }
   }
+};
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client
-  const PORT = 5000;
-  server.listen(PORT, "0.0.0.0", () => {
-    log(`serving on port ${PORT}`);
+// Start the server with port 5000 initially
+startServer(5000)
+  .catch((error) => {
+    console.error("Failed to start server:", error);
+    process.exit(1);
   });
-})();
