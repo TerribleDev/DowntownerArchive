@@ -1,29 +1,67 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
+    <title>The Downtowner Newsletter Archive</title>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="description" content="The Downtowner Newsletter Archive - Stay updated with Downtown Nashua news and events" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta
+      name="description"
+      content="The Downtowner Newsletter Archive - The best way to stay informed about Downtown Nashua news and events"
+    />
+
+    <!-- Facebook Meta Tags -->
+    <meta property="og:url" content="https://downtowner.terrible.dev/" />
+    <meta property="og:type" content="site" />
+    <meta property="og:title" content="The Downtowner Newsletter Archive" />
+    <meta
+      property="og:description"
+      content="The Downtowner Newsletter Archive - The best way to stay informed about Downtown Nashua news and events"
+    />
+    <meta
+      property="og:image"
+      content="https://downtowner.terrible.dev/unfurl.jpeg"
+    />
+
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://downtowner.terrible.dev/" />
+    <meta name="twitter:title" content="site" />
+    <meta
+      name="twitter:description"
+      content="The Downtowner Newsletter Archive - The best way to stay informed about Downtown Nashua news and events"
+    />
+    <meta
+      name="twitter:image"
+      content="https://downtowner.terrible.dev/unfurl.jpeg"
+    />
+
     <meta name="theme-color" content="#000000" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="The Downtowner" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" href="/icon.png" />
     <link rel="apple-touch-icon" href="/icon.png" />
-    <title>The Downtowner</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', async () => {
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", async () => {
           try {
-            const registration = await navigator.serviceWorker.register('/service-worker.js');
-            console.log('ServiceWorker registration successful with scope:', registration.scope);
+            const registration =
+              await navigator.serviceWorker.register("/service-worker.js");
+            console.log(
+              "ServiceWorker registration successful with scope:",
+              registration.scope,
+            );
           } catch (err) {
-            console.error('ServiceWorker registration failed:', err);
+            console.error("ServiceWorker registration failed:", err);
           }
         });
       }
