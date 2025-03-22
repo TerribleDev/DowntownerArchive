@@ -271,6 +271,18 @@ export default function Home() {
             Newsletter Archive for Downtown Nashua
           </p>
 
+          <div className="flex justify-center mb-4">
+            <a
+              href="https://downtownnashua.org/downtowner/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Bell className="h-4 w-4" />
+              <span>Subscribe to Newsletter</span>
+            </a>
+          </div>
+
           </motion.header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
