@@ -271,46 +271,7 @@ export default function Home() {
             Newsletter Archive for Downtown Nashua
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto items-center">
-            {isDevelopment && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleImport}
-                  disabled={isImporting}
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${isImporting ? "animate-spin" : ""}`}
-                  />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleSendTestNotification}
-                  disabled={isSendingTestNotification}
-                  title="Send test notification to all subscribers"
-                >
-                  <BellRing
-                    className={`h-4 w-4 ${isSendingTestNotification ? "animate-pulse" : ""}`}
-                  />
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleSubscribe}
-              disabled={isSubscribed}
-            >
-              {isSubscribed ? (
-                <BellOff className="h-4 w-4" />
-              ) : (
-                <Bell className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        </motion.header>
+          </motion.header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence>
