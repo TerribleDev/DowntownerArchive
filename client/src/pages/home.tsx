@@ -300,11 +300,7 @@ export default function Home() {
                 <Bell className="h-4 w-4" />
               )}
             </Button>
-            <Button variant="outline" size="icon" asChild>
-              <a href="/api/rss" target="_blank" rel="noopener noreferrer">
-                <Rss className="h-4 w-4" />
-              </a>
-            </Button>
+            
           </div>
         </motion.header>
 
