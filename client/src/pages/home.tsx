@@ -254,6 +254,15 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto items-center">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search newsletters..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
             {isDevelopment && (
               <>
                 <Button
@@ -282,15 +291,15 @@ export default function Home() {
             <Button
               variant="outline"
               size="icon"
-              asChild
+              onClick={handleSubscribe}
+              disabled={isSubscribed}
             >
-              <a href="https://downtownnashua.org/downtowner/" target="_blank" rel="noopener noreferrer">
               {isSubscribed ? (
                 <BellOff className="h-4 w-4" />
               ) : (
                 <Bell className="h-4 w-4" />
               )}
-            </a>
+            </Button>
             
           </div>
         </motion.header>
