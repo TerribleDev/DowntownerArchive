@@ -24,7 +24,11 @@ import {
   BellOff,
   BellRing,
 } from "lucide-react";
-import { useNewsletters, useNewsletterSearch, type NewslettersResponse } from "@/lib/newsletter-data";
+import {
+  useNewsletters,
+  useNewsletterSearch,
+  type NewslettersResponse,
+} from "@/lib/newsletter-data";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
@@ -36,7 +40,8 @@ const ITEMS_PER_PAGE = 20;
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isImporting, setIsImporting] = useState(false);
-  const [isSendingTestNotification, setIsSendingTestNotification] = useState(false);
+  const [isSendingTestNotification, setIsSendingTestNotification] =
+    useState(false);
   const [page, setPage] = useState(1);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [allItems, setAllItems] = useState<Newsletter[]>([]);
@@ -63,8 +68,9 @@ export default function Home() {
   const isCurrentFetching = searchQuery ? isSearchFetching : isFetching;
 
   // Check if there are more pages to load
-  const hasMorePages = currentData ? 
-    (currentData.page * currentData.limit < currentData.total) : false;
+  const hasMorePages = currentData
+    ? currentData.page * currentData.limit < currentData.total
+    : false;
 
   // Merge newsletter items when data changes
   useEffect(() => {
@@ -75,12 +81,16 @@ export default function Home() {
       setAllItems(currentData.newsletters);
     } else {
       // Merge items, ensuring we don't have duplicates
-      setAllItems(prevItems => {
+      setAllItems((prevItems) => {
         // Create a set of IDs from new items for faster lookups
-        const newItemIds = new Set(currentData.newsletters.map(item => item.id));
+        const newItemIds = new Set(
+          currentData.newsletters.map((item) => item.id),
+        );
 
         // Filter out any previous items that would be duplicated
-        const filteredPrevItems = prevItems.filter(item => !newItemIds.has(item.id));
+        const filteredPrevItems = prevItems.filter(
+          (item) => !newItemIds.has(item.id),
+        );
 
         // Combine previous (non-duplicate) items with new items
         return [...filteredPrevItems, ...currentData.newsletters];
@@ -210,13 +220,21 @@ export default function Home() {
     }
   };
 
-  const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
-    const target = entries[0];
-    if (target.isIntersecting && !isCurrentLoading && !isCurrentFetching && hasMorePages) {
-      console.log("Loading more newsletters. Current page:", page);
-      setPage((prev) => prev + 1);
-    }
-  }, [isCurrentLoading, isCurrentFetching, hasMorePages, page]);
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const target = entries[0];
+      if (
+        target.isIntersecting &&
+        !isCurrentLoading &&
+        !isCurrentFetching &&
+        hasMorePages
+      ) {
+        console.log("Loading more newsletters. Current page:", page);
+        setPage((prev) => prev + 1);
+      }
+    },
+    [isCurrentLoading, isCurrentFetching, hasMorePages, page],
+  );
 
   useEffect(() => {
     const currentLoader = loader.current;
@@ -254,15 +272,6 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto items-center">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search newsletters..."
-                className="pl-9"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
             {isDevelopment && (
               <>
                 <Button
@@ -300,7 +309,6 @@ export default function Home() {
                 <Bell className="h-4 w-4" />
               )}
             </Button>
-            
           </div>
         </motion.header>
 
@@ -410,7 +418,10 @@ export default function Home() {
 
         {/* Loading indicator at bottom */}
         {hasMorePages && (
-          <div ref={loader} className="h-20 my-4 flex justify-center items-center">
+          <div
+            ref={loader}
+            className="h-20 my-4 flex justify-center items-center"
+          >
             {isCurrentFetching && page > 1 && (
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             )}
