@@ -290,7 +290,7 @@ export default function Home() {
               ) : (
                 <Bell className="h-4 w-4" />
               )}
-            </Button>
+            </a>
             
           </div>
         </motion.header>
