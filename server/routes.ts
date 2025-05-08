@@ -26,6 +26,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup background job to check for new newsletters
   schedule.scheduleJob("0 */4 * * *", async function () {
     try {
+      console.log("Job to check for new newsletters...");
       await UpdateNewsletters();
     } catch (error) {
       console.error("Background job failed:", error);
@@ -207,7 +208,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/newsletters", async (req, res) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
-    const { newsletters, total } = await storage.getNewslettersPaginated(page, limit);
+    const { newsletters, total } = await storage.getNewslettersPaginated(
+      page,
+      limit,
+    );
     res.json({ newsletters, total, page, limit });
   });
 
@@ -215,7 +219,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const query = (req.query.q as string) || "";
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
-    const { newsletters, total } = await storage.searchNewslettersPaginated(query, page, limit);
+    const { newsletters, total } = await storage.searchNewslettersPaginated(
+      query,
+      page,
+      limit,
+    );
     res.json({ newsletters, total, page, limit });
   });
 
@@ -233,17 +241,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/notifications/test", async (_req, res) => {
     try {
       // Only allow this in development mode
-      if (process.env.NODE_ENV === 'production') {
-        return res.status(403).json({ message: "This endpoint is only available in development mode" });
+      if (process.env.NODE_ENV === "production") {
+        return res
+          .status(403)
+          .json({
+            message: "This endpoint is only available in development mode",
+          });
       }
 
       const subscriptions = await storage.getActiveSubscriptions();
 
       if (subscriptions.length === 0) {
-        return res.status(200).json({ message: "No active subscriptions found" });
+        return res
+          .status(200)
+          .json({ message: "No active subscriptions found" });
       }
 
-      console.log(`Sending test notification to ${subscriptions.length} subscribers`);
+      console.log(
+        `Sending test notification to ${subscriptions.length} subscribers`,
+      );
 
       const notificationPayload = JSON.stringify({
         title: "Test Notification",
@@ -269,17 +285,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const succeeded = results.filter((r) => r.status === "fulfilled").length;
       const failed = results.filter((r) => r.status === "rejected").length;
 
-      console.log(`Test notification results: ${succeeded} succeeded, ${failed} failed`);
+      console.log(
+        `Test notification results: ${succeeded} succeeded, ${failed} failed`,
+      );
 
-      res.status(200).json({ 
+      res.status(200).json({
         message: `Test notifications sent: ${succeeded} succeeded, ${failed} failed`,
         succeeded,
         failed,
-        total: subscriptions.length
+        total: subscriptions.length,
       });
     } catch (error) {
       console.error("Error sending test notifications:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to send test notifications",
         error: error instanceof Error ? error.message : String(error),
       });
@@ -409,7 +427,7 @@ async function UpdateNewsletters() {
   await scrapeNewsletters(async (newsletter) => {
     // Check if newsletter already exists
     const exists = existingNewsletters.some(
-      (existing) => existing.url === newsletter.url
+      (existing) => existing.url === newsletter.url,
     );
     if (!exists) {
       await storage.importNewsletter(newsletter);
@@ -420,14 +438,12 @@ async function UpdateNewsletters() {
 
   if (newNewslettersCount > 0) {
     console.log(
-      `Found ${newNewslettersCount} new newsletters, sending notifications...`
+      `Found ${newNewslettersCount} new newsletters, sending notifications...`,
     );
 
     // Send push notifications for new newsletters
     const subscriptions = await storage.getActiveSubscriptions();
-    console.log(
-      `Sending notifications to ${subscriptions.length} subscribers`
-    );
+    console.log(`Sending notifications to ${subscriptions.length} subscribers`);
 
     const notificationPayload = JSON.stringify({
       title: "New Newsletters Available",
@@ -436,37 +452,37 @@ async function UpdateNewsletters() {
     });
 
     const results = await Promise.allSettled(
-      subscriptions.map((subscription) => webpush.sendNotification(
-        {
-          endpoint: subscription.endpoint,
-          keys: {
-            auth: subscription.auth,
-            p256dh: subscription.p256dh,
+      subscriptions.map((subscription) =>
+        webpush.sendNotification(
+          {
+            endpoint: subscription.endpoint,
+            keys: {
+              auth: subscription.auth,
+              p256dh: subscription.p256dh,
+            },
           },
-        },
-        notificationPayload
-      )
-      )
+          notificationPayload,
+        ),
+      ),
     );
 
-    const succeeded = results.filter(
-      (r) => r.status === "fulfilled"
-    ).length;
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.filter((r) => r.status === "rejected").length;
     console.log(
-      `Push notifications sent: ${succeeded} succeeded, ${failed} failed`
+      `Push notifications sent: ${succeeded} succeeded, ${failed} failed`,
     );
   }
 
   // Retry fetching details for newsletters without them
-  const newslettersWithoutDetails = await storage.getNewslettersWithoutDetails();
+  const newslettersWithoutDetails =
+    await storage.getNewslettersWithoutDetails();
   const updatedNewsletters = await retryMissingDetails(
-    newslettersWithoutDetails
+    newslettersWithoutDetails,
   );
 
   for (const newsletter of updatedNewsletters) {
     // Check if newsletter has an id property before accessing it
-    if ('id' in newsletter && newsletter.id) {
+    if ("id" in newsletter && newsletter.id) {
       await storage.updateNewsletterDetails(newsletter.id, {
         thumbnail: newsletter.thumbnail,
         content: newsletter.content,
