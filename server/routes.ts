@@ -26,81 +26,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup background job to check for new newsletters
   schedule.scheduleJob("0 */4 * * *", async function () {
     try {
-      const existingNewsletters = await storage.getNewsletters();
-      let newNewslettersCount = 0;
-
-      await scrapeNewsletters(async (newsletter) => {
-        // Check if newsletter already exists
-        const exists = existingNewsletters.some(
-          (existing) => existing.url === newsletter.url,
-        );
-        if (!exists) {
-          await storage.importNewsletter(newsletter);
-          newNewslettersCount++;
-          console.log(`Imported new newsletter: ${newsletter.title}`);
-        }
-      });
-
-      if (newNewslettersCount > 0) {
-        console.log(
-          `Found ${newNewslettersCount} new newsletters, sending notifications...`,
-        );
-
-        // Send push notifications for new newsletters
-        const subscriptions = await storage.getActiveSubscriptions();
-        console.log(
-          `Sending notifications to ${subscriptions.length} subscribers`,
-        );
-
-        const notificationPayload = JSON.stringify({
-          title: "New Newsletters Available",
-          body: `${newNewslettersCount} new newsletter${newNewslettersCount > 1 ? "s" : ""} published!`,
-          icon: "/icon.png",
-        });
-
-        const results = await Promise.allSettled(
-          subscriptions.map((subscription) =>
-            webpush.sendNotification(
-              {
-                endpoint: subscription.endpoint,
-                keys: {
-                  auth: subscription.auth,
-                  p256dh: subscription.p256dh,
-                },
-              },
-              notificationPayload,
-            ),
-          ),
-        );
-
-        const succeeded = results.filter(
-          (r) => r.status === "fulfilled",
-        ).length;
-        const failed = results.filter((r) => r.status === "rejected").length;
-        console.log(
-          `Push notifications sent: ${succeeded} succeeded, ${failed} failed`,
-        );
-      }
-
-      // Retry fetching details for newsletters without them
-      const newslettersWithoutDetails =
-        await storage.getNewslettersWithoutDetails();
-      const updatedNewsletters = await retryMissingDetails(
-        newslettersWithoutDetails,
-      );
-
-      for (const newsletter of updatedNewsletters) {
-        // Check if newsletter has an id property before accessing it
-        if ('id' in newsletter && newsletter.id) {
-          await storage.updateNewsletterDetails(newsletter.id, {
-            thumbnail: newsletter.thumbnail,
-            content: newsletter.content,
-            description: newsletter.description,
-            hasDetails: newsletter.hasDetails,
-          });
-          console.log(`Updated details for newsletter: ${newsletter.title}`);
-        }
-      }
+      await UpdateNewsletters();
     } catch (error) {
       console.error("Background job failed:", error);
     }
@@ -295,14 +221,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/newsletters/import", async (_req, res) => {
     try {
-      let importedCount = 0;
-      await scrapeNewsletters(async (newsletter) => {
-        await storage.importNewsletter(newsletter);
-        importedCount++;
-      });
-      res.json({
-        message: `Successfully imported ${importedCount} newsletters`,
-      });
+      await UpdateNewsletters();
+      res.json({ message: "Newsletters imported successfully" });
     } catch (error) {
       console.error("Error importing newsletters:", error);
       res.status(500).json({ message: "Failed to import newsletters" });
@@ -480,4 +400,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+async function UpdateNewsletters() {
+  const existingNewsletters = await storage.getNewsletters();
+  let newNewslettersCount = 0;
+
+  await scrapeNewsletters(async (newsletter) => {
+    // Check if newsletter already exists
+    const exists = existingNewsletters.some(
+      (existing) => existing.url === newsletter.url
+    );
+    if (!exists) {
+      await storage.importNewsletter(newsletter);
+      newNewslettersCount++;
+      console.log(`Imported new newsletter: ${newsletter.title}`);
+    }
+  });
+
+  if (newNewslettersCount > 0) {
+    console.log(
+      `Found ${newNewslettersCount} new newsletters, sending notifications...`
+    );
+
+    // Send push notifications for new newsletters
+    const subscriptions = await storage.getActiveSubscriptions();
+    console.log(
+      `Sending notifications to ${subscriptions.length} subscribers`
+    );
+
+    const notificationPayload = JSON.stringify({
+      title: "New Newsletters Available",
+      body: `${newNewslettersCount} new newsletter${newNewslettersCount > 1 ? "s" : ""} published!`,
+      icon: "/icon.png",
+    });
+
+    const results = await Promise.allSettled(
+      subscriptions.map((subscription) => webpush.sendNotification(
+        {
+          endpoint: subscription.endpoint,
+          keys: {
+            auth: subscription.auth,
+            p256dh: subscription.p256dh,
+          },
+        },
+        notificationPayload
+      )
+      )
+    );
+
+    const succeeded = results.filter(
+      (r) => r.status === "fulfilled"
+    ).length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+    console.log(
+      `Push notifications sent: ${succeeded} succeeded, ${failed} failed`
+    );
+  }
+
+  // Retry fetching details for newsletters without them
+  const newslettersWithoutDetails = await storage.getNewslettersWithoutDetails();
+  const updatedNewsletters = await retryMissingDetails(
+    newslettersWithoutDetails
+  );
+
+  for (const newsletter of updatedNewsletters) {
+    // Check if newsletter has an id property before accessing it
+    if ('id' in newsletter && newsletter.id) {
+      await storage.updateNewsletterDetails(newsletter.id, {
+        thumbnail: newsletter.thumbnail,
+        content: newsletter.content,
+        description: newsletter.description,
+        hasDetails: newsletter.hasDetails,
+      });
+      console.log(`Updated details for newsletter: ${newsletter.title}`);
+    }
+  }
 }
